@@ -18,6 +18,7 @@ struct Point {
 
 int ROWS = 30;
 int COLS = 60;
+int ROOM_COUNT = 9;
 
 void fillMatrix(char matrix[][COLS], int rows, int cols, char input)
 {
@@ -138,8 +139,9 @@ struct Rectangle *placeRooms(char matrix[][COLS], int numRooms)
             }
             else
             {
-                printf("placing room %d\n", (placed + 1));
-                printf("x: %d, y: %d, width: %d, height: %d\n", x, y, width, height);
+                // debugging
+                // printf("placing room %d\n", (placed + 1));
+                // printf("x: %d, y: %d, width: %d, height: %d\n", x, y, width, height);
                 placeRoom(matrix, x + 1, y + 1, width - 2, height - 2, i + '0');
                 rooms[placed] = c;
                 placed++;
@@ -147,8 +149,9 @@ struct Rectangle *placeRooms(char matrix[][COLS], int numRooms)
         }
         else
         {
-            printf("placing first room\n");
-            printf("x: %d, y: %d, width: %d, height: %d\n", x, y, width, height);
+            // debugging
+            // printf("placing first room\n");
+            // printf("x: %d, y: %d, width: %d, height: %d\n", x, y, width, height);
             placeRoom(matrix, x + 1, y + 1, width - 2, height - 2, i + '0');
             rooms[placed] = c;
             placed++;
@@ -172,10 +175,12 @@ struct Rectangle *placeRooms(char matrix[][COLS], int numRooms)
 
 void redrawAllRooms(char matrix[][COLS], struct Rectangle *rooms, int numRooms) {
     for (int i = 0; i < numRooms; i++) {
-        placeRoom(matrix, rooms[i].xPos+1, rooms[i].yPos+1, rooms[i].width-2, rooms[i].height-2, i + '0');
+        // placeRoom(matrix, rooms[i].xPos+1, rooms[i].yPos+1, rooms[i].width-2, rooms[i].height-2, i + '0');
+        placeRoom(matrix, rooms[i].xPos, rooms[i].yPos, rooms[i].width, rooms[i].height, i + '0');
     }
 }
 
+// TODO: fix bug where room returned is not always the topmost, leftmost room
 struct Rectangle findTopLeftRoom(struct Rectangle *rooms, int numRooms) {
     if(numRooms == 0) {
         printf("Error: no rooms, cannot locate top left room\n");
@@ -232,12 +237,42 @@ int pointInRect(struct Point point, struct Rectangle rect) {
     return 0;
 }
 
+void dfs(int room, int numRooms, int connections[][numRooms], int visited[]) {
+    visited[room] = 1;
 
+    for (int i = 0; i < numRooms; i++) {
+        if (connections[room][i] && !visited[i]) {
+            dfs(i, numRooms, connections, visited);
+        }
+    }
+}
+
+int isFullyTransitive(int numRooms, int connections[][numRooms]) {
+    int visited[numRooms];
+    for (int i = 0; i < numRooms; i++) {
+        visited[i] = 0;
+    }
+
+    // Start DFS from the first room
+    dfs(0, numRooms, connections, visited);
+
+    // Check if all rooms were visited
+    for (int i = 0; i < numRooms; i++) {
+        if (!visited[i]) {
+            return 0; // Not fully transitive
+        }
+    }
+
+    return 1; // Fully transitive
+}
+
+// TODO: modify placeCorridors so that it has enough corridors to connect each room to at least one other room,
+//       and that each room is reachable (i.e. there are no isolated rooms), this will involve removing param 'int numCorridors' 
 // TODO: modify placeCorridors so that two corridors can be placed down, one that is horizontal and one that is vertical
 //       to connect two rooms via two intersecting corridors where both corridors start at a room wall and end at a room wall
 // TODO: modify placeCorridors so that each room is connected to at least one other room
 // TODO: modify placeCorridors so that each door to a room (a corridor-room intersection) does not occur at a room corner
-struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, int numRooms, int numCorridors) {
+struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, int numRooms, int numCorridors, int connections[][numRooms]) {
     int placed = 0;
     int iterationCount = 0;
     int epoch = 0;
@@ -249,8 +284,10 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         }
     }
 
+    printf("Initial matrix fully transitive: %d\n", isFullyTransitive(numRooms, connections));
+
     struct Rectangle *corridors = malloc(numCorridors * sizeof(struct Rectangle));
-    while (placed < numCorridors) {
+    while (isFullyTransitive(numRooms, connections) == 0 && placed < numCorridors) {
         int isTall = rand() % 2; // 0 for wide, 1 for tall
         int width = isTall ? 3 : rand() % 10 + 7;
         int height = isTall ? rand() % 10 + 7 : 3;
@@ -258,21 +295,40 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         int y = rand() % (ROWS - height - 2) + 2;
         struct Rectangle corridor = {x, y, width, height};
 
+        int intersectedRooms[3]; // changed to 3 to include the case where the corridor intersects more than 2 rooms
         int intersections = 0;
         for (int i = 0; i < numRooms; i++) {
             if (rectCollision(corridor, rooms[i])) {
-                intersections++;
+                if(intersections > 2) {
+                    printf("Error: corridor intersects more than 2 rooms\n");
+                    break;
+                } else {
+                    intersectedRooms[intersections] = i;
+                    intersections++;
+                }
             }
         }
 
         if (intersections == 2) {
-            placeRoom(matrix, x, y, width, height, placed + 'a');
-            corridors[placed] = corridor;
-            placed++;
+            // Check if the rooms are already connected
+            if (connections[intersectedRooms[0]][intersectedRooms[1]]) {
+                // The rooms are already connected, so skip this corridor
+                printf("Rooms %d and %d are already connected, skipping adding this corridor\n", intersectedRooms[0], intersectedRooms[1]);
+            } else {
+                // Place the corridor
+                printf("Placing corridor %c\n", placed + 'a');
+                placeRoom(matrix, x, y, width, height, placed + 'a');
+                corridors[placed] = corridor;
+                placed++;
+                // Update the connections matrix
+                connections[intersectedRooms[0]][intersectedRooms[1]] = 1;
+                connections[intersectedRooms[1]][intersectedRooms[0]] = 1;
+            }
         }
         iterationCount++;
 
         if(epoch > 10) {
+            // TODO: either throw an error here, increase the epoch limit, or figure out a different strategy
             printf("Epoch limit reached, returning corridors\n");
             return corridors;
         }
@@ -315,19 +371,28 @@ int main()
     // clear the board
     fillMatrix(matrix, ROWS, COLS, '-');
     // place rooms
-    struct Rectangle *rooms = placeRooms(matrix, 9);
+    struct Rectangle *rooms = placeRooms(matrix, ROOM_COUNT);
 
     // find the top left room
-    struct Rectangle topLeftRoom = findTopLeftRoom(rooms, 9);
+    struct Rectangle topLeftRoom = findTopLeftRoom(rooms, ROOM_COUNT);
 
     // get the topLeftRoom index
-    int indexOfTopLeftRoom = getRoomIndexFromRect(topLeftRoom, rooms, 9);
+    int indexOfTopLeftRoom = getRoomIndexFromRect(topLeftRoom, rooms, ROOM_COUNT);
 
     // print the details of the top left room (debugging message)
     printRoomDetails(matrix, rooms, indexOfTopLeftRoom);
 
+    // an adjacency matrix to store connections between rooms
+    int connections[ROOM_COUNT][ROOM_COUNT]; 
+    // initialize connections to all 0's to indicate there are no room connections yet
+    for (int i = 0; i < ROOM_COUNT; i++) {
+        for (int j = 0; j < ROOM_COUNT; j++) {
+            connections[i][j] = 0;
+        }
+    }
+
     // place corridors
-    struct Rectangle *corridors = placeCorridors(matrix, rooms, 9, 5);
+    struct Rectangle *corridors = placeCorridors(matrix, rooms, ROOM_COUNT, 15, connections);
 
     // redraw the rooms so that they appear "on top of" the corridors
     redrawAllRooms(matrix, rooms, 9);
