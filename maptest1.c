@@ -126,7 +126,8 @@ struct Rectangle *placeRooms(char matrix[][COLS], int numRooms)
             int collisionFound = 0;
             for (i = 0; i < placed; i++)
             {
-                if (rectCollision(c, rooms[i]))
+                struct Rectangle grown = {rooms[i].xPos - 1, rooms[i].yPos - 1, rooms[i].width + 2, rooms[i].height + 2};
+                if (rectCollision(c, grown))
                 {
                     collisionFound = 1;
                     break;
@@ -266,11 +267,11 @@ int isFullyTransitive(int numRooms, int connections[][numRooms]) {
     return 1; // Fully transitive
 }
 
-// TODO: modify placeCorridors so that it has enough corridors to connect each room to at least one other room,
+// DONE: modify placeCorridors so that it has enough corridors to connect each room to at least one other room,
 //       and that each room is reachable (i.e. there are no isolated rooms), this will involve removing param 'int numCorridors' 
 // TODO: modify placeCorridors so that two corridors can be placed down, one that is horizontal and one that is vertical
 //       to connect two rooms via two intersecting corridors where both corridors start at a room wall and end at a room wall
-// TODO: modify placeCorridors so that each room is connected to at least one other room
+// DONE: modify placeCorridors so that each room is connected to at least one other room
 // TODO: modify placeCorridors so that each door to a room (a corridor-room intersection) does not occur at a room corner
 struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, int numRooms, int numCorridors, int connections[][numRooms]) {
     int placed = 0;
@@ -298,7 +299,8 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         int intersectedRooms[3]; // changed to 3 to include the case where the corridor intersects more than 2 rooms
         int intersections = 0;
         for (int i = 0; i < numRooms; i++) {
-            if (rectCollision(corridor, rooms[i])) {
+            struct Rectangle shrunkRoom = {rooms[i].xPos+2, rooms[i].yPos+2, rooms[i].width-4, rooms[i].height-4};
+            if (rectCollision(corridor, shrunkRoom)) {
                 if(intersections > 2) {
                     printf("Error: corridor intersects more than 2 rooms\n");
                     break;
@@ -327,7 +329,7 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         }
         iterationCount++;
 
-        if(epoch > 10) {
+        if(epoch > 50) {
             // TODO: either throw an error here, increase the epoch limit, or figure out a different strategy
             printf("Epoch limit reached, returning corridors\n");
             return corridors;
@@ -346,6 +348,12 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
             for (int i = 0; i < ROWS; i++) {
                 for (int j = 0; j < COLS; j++) {
                     matrix[i][j] = initialMatrix[i][j];
+                }
+            }
+            // reset connections
+            for (int i = 0; i < numRooms; i++) {
+                for (int j = 0; j < numRooms; j++) {
+                    connections[i][j] = 0;
                 }
             }
         }
