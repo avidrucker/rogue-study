@@ -375,7 +375,7 @@ int main()
     // from the level end, or simply just in room #0 (went with topleft room for now)
     struct Point playerLocation = {0, 0};
     // remember the tile type the player is on currently
-    char playerCell = '-';
+    char playerCell = '.';
     // clear the board
     fillMatrix(matrix, ROWS, COLS, '-');
     // place rooms
