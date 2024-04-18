@@ -3,6 +3,20 @@
 #include <string.h>
 #include <time.h>
 
+// TODO: fix bug where sometimes rooms are not all connected within 50 epochs
+// TODO: feat conversion of room-corridor intersections to doors
+// TODO: figure out which room is the "first room" and place player there
+// TODO: place the exit in the "last room" (the room farthest from the first room)
+// TODO: add a win condition when the player reaches the exit
+// TODO: find a room that isn't the first nor last room that is only connected to 
+//       one other room, and mark this as the secret room to put treasure in, if no
+//       such room exists, then swap the last room with 2nd to last room and make
+//       the last room now be the secret room. eg: rooms 2->7->0->8->4 and 0->3 also.
+//       In this example, room 2 is the first room, room 3 is the secret room, and 
+//       room 4 is the last room. If there are two rooms or more that are only 
+//       connected to one other room, then randomly choose one of them to be the 
+//       secret room.
+
 struct Rectangle
 {
     int xPos;
@@ -19,6 +33,7 @@ struct Point {
 int ROWS = 30;
 int COLS = 60;
 int ROOM_COUNT = 9;
+int MAX_EPOCHS = 100;
 
 void fillMatrix(char matrix[][COLS], int rows, int cols, char input)
 {
@@ -329,7 +344,7 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         }
         iterationCount++;
 
-        if(epoch > 50) {
+        if(epoch > MAX_EPOCHS) {
             // TODO: either throw an error here, increase the epoch limit, or figure out a different strategy
             printf("Epoch limit reached, returning corridors\n");
             return corridors;
@@ -358,6 +373,8 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
             }
         }
     }
+    printf("corridors completed on epoch: %d\n", epoch);
+    return corridors;
 }
 
 int main()
