@@ -11,6 +11,11 @@ struct Rectangle
     int height;
 };
 
+struct Point {
+    int x; // column, starting at the left w/ col 0
+    int y; // row, starting at the top w/ row 0
+};
+
 int ROWS = 30;
 int COLS = 60;
 
@@ -41,21 +46,21 @@ void printMatrix(char matrix[][COLS], int rows, int cols)
     }
 }
 
-int moveInBounds(char matrix[][COLS], int playerPos[], char direction)
+int moveInBounds(char matrix[][COLS], struct Point playerPos, char direction)
 {
-    if (direction == 'w' && playerPos[0] > 0)
+    if (direction == 'w' && playerPos.y > 0)
     {
         return 1;
     }
-    else if (direction == 'a' && playerPos[1] > 0)
+    else if (direction == 'a' && playerPos.x > 0)
     {
         return 1;
     }
-    else if (direction == 's' && playerPos[0] < ROWS - 1)
+    else if (direction == 's' && playerPos.y < ROWS - 1)
     {
         return 1;
     }
-    else if (direction == 'd' && playerPos[1] < COLS - 1)
+    else if (direction == 'd' && playerPos.x < COLS - 1)
     {
         return 1;
     }
@@ -165,6 +170,132 @@ struct Rectangle *placeRooms(char matrix[][COLS], int numRooms)
     return rooms;
 }
 
+void redrawAllRooms(char matrix[][COLS], struct Rectangle *rooms, int numRooms) {
+    for (int i = 0; i < numRooms; i++) {
+        placeRoom(matrix, rooms[i].xPos+1, rooms[i].yPos+1, rooms[i].width-2, rooms[i].height-2, i + '0');
+    }
+}
+
+struct Rectangle findTopLeftRoom(struct Rectangle *rooms, int numRooms) {
+    if(numRooms == 0) {
+        printf("Error: no rooms, cannot locate top left room\n");
+        struct Rectangle noRoom = {-1, -1, -1, -1};
+        return noRoom;
+    }
+
+    struct Rectangle topLeftRoom = rooms[0]; // Initialize with the first room
+    int roomIndex = 0;
+    for (int i = 1; i < numRooms; i++) {
+        roomIndex++;
+        if (rooms[i].xPos < topLeftRoom.xPos || rooms[i].yPos < topLeftRoom.yPos) {
+            topLeftRoom = rooms[i];
+        }
+    }
+
+    // debugging message
+    printf("The top left room is room number %d is at (%d, %d)\n", roomIndex, topLeftRoom.xPos, topLeftRoom.yPos);
+
+    return topLeftRoom;
+}
+
+int getRoomIndexFromRect(struct Rectangle rect, struct Rectangle *rooms, int numRooms) {
+    for (int i = 0; i < numRooms; i++) {
+        if (rooms[i].xPos == rect.xPos && rooms[i].yPos == rect.yPos &&
+            rooms[i].width == rect.width && rooms[i].height == rect.height) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// a debugging function
+void printRoomDetails(char matrix[][COLS], struct Rectangle *rooms, int roomIndex) {
+    if(roomIndex == -1) {
+        printf("Error: room not found, cannot print room details\n");
+        return;
+    }
+    struct Rectangle room = rooms[roomIndex];
+    printf("Room %d details:\n", roomIndex);
+    printf("x: %d\n", room.xPos);
+    printf("y: %d\n", room.yPos);
+    printf("width: %d\n", room.width);
+    printf("height: %d\n", room.height);
+    printf("char at (x: %d, y: %d): %c\n", room.xPos+1, room.yPos+1, matrix[room.yPos+1][room.xPos+1]);
+}
+
+
+int pointInRect(struct Point point, struct Rectangle rect) {
+    if (point.x >= rect.xPos && point.x < rect.xPos + rect.width &&
+        point.y >= rect.yPos && point.y < rect.yPos + rect.height) {
+        return 1;
+    }
+    return 0;
+}
+
+
+// TODO: modify placeCorridors so that two corridors can be placed down, one that is horizontal and one that is vertical
+//       to connect two rooms via two intersecting corridors where both corridors start at a room wall and end at a room wall
+// TODO: modify placeCorridors so that each room is connected to at least one other room
+// TODO: modify placeCorridors so that each door to a room (a corridor-room intersection) does not occur at a room corner
+struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, int numRooms, int numCorridors) {
+    int placed = 0;
+    int iterationCount = 0;
+    int epoch = 0;
+    // save initial matrix state so if we need to redo the hallways we can by looping over matrix
+    char initialMatrix[ROWS][COLS];
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            initialMatrix[i][j] = matrix[i][j];
+        }
+    }
+
+    struct Rectangle *corridors = malloc(numCorridors * sizeof(struct Rectangle));
+    while (placed < numCorridors) {
+        int isTall = rand() % 2; // 0 for wide, 1 for tall
+        int width = isTall ? 3 : rand() % 10 + 7;
+        int height = isTall ? rand() % 10 + 7 : 3;
+        int x = rand() % (COLS - width - 2) + 2;
+        int y = rand() % (ROWS - height - 2) + 2;
+        struct Rectangle corridor = {x, y, width, height};
+
+        int intersections = 0;
+        for (int i = 0; i < numRooms; i++) {
+            if (rectCollision(corridor, rooms[i])) {
+                intersections++;
+            }
+        }
+
+        if (intersections == 2) {
+            placeRoom(matrix, x, y, width, height, placed + 'a');
+            corridors[placed] = corridor;
+            placed++;
+        }
+        iterationCount++;
+
+        if(epoch > 10) {
+            printf("Epoch limit reached, returning corridors\n");
+            return corridors;
+        }
+
+        // if we have run 100+ iterations, reset the matrix & corridors and try again
+        if(iterationCount > 100) {
+            printf("Resetting matrix and corridors\n");
+            placed = 0;
+            iterationCount = 0;
+            epoch++;
+            for (int i = 0; i < numCorridors; i++) {
+                struct Rectangle noCorridor = {-1, -1, -1, -1};
+                corridors[i] = noCorridor;
+            }
+            for (int i = 0; i < ROWS; i++) {
+                for (int j = 0; j < COLS; j++) {
+                    matrix[i][j] = initialMatrix[i][j];
+                }
+            }
+        }
+    }
+}
+
 int main()
 {
     srand(time(NULL));
@@ -174,11 +305,11 @@ int main()
     char message[80];
     strcpy(message, "");
     // initialize player 1 at 0,0
-    // TODO: make playerLocation a Point struct
-    // TODO: set player's location to be in a room (make sure to prevent wall collisions)
-    // TODO: set player's location to be in the "first room" which may be farther away 
-    // from the level end, or simply just in room #0
-    int playerLocation[2] = {0, 0};
+    // DONE: make playerLocation a Point struct
+    // DONE: set player's location to be in a room (make sure to prevent placement on a wall)
+    // DONE: set player's location to be in the "first room" which may be farther away 
+    // from the level end, or simply just in room #0 (went with topleft room for now)
+    struct Point playerLocation = {0, 0};
     // remember the tile type the player is on currently
     char playerCell = '-';
     // clear the board
@@ -186,13 +317,31 @@ int main()
     // place rooms
     struct Rectangle *rooms = placeRooms(matrix, 9);
 
+    // find the top left room
+    struct Rectangle topLeftRoom = findTopLeftRoom(rooms, 9);
+
+    // get the topLeftRoom index
+    int indexOfTopLeftRoom = getRoomIndexFromRect(topLeftRoom, rooms, 9);
+
+    // print the details of the top left room (debugging message)
+    printRoomDetails(matrix, rooms, indexOfTopLeftRoom);
+
+    // place corridors
+    struct Rectangle *corridors = placeCorridors(matrix, rooms, 9, 5);
+
+    // redraw the rooms so that they appear "on top of" the corridors
+    redrawAllRooms(matrix, rooms, 9);
+
+    // TODO: player player 1 at the topleft of the top left room
     // initially place player onto the board
-    matrix[playerLocation[0]][playerLocation[1]] = 'P';
+    playerLocation.x = topLeftRoom.xPos+2;
+    playerLocation.y = topLeftRoom.yPos+2;
+    matrix[playerLocation.y][playerLocation.x] = 'P';
 
     while (1)
     {
         // clear the console
-        system("clear");
+        // system("clear"); // TODO: uncomment this line when not debugging
         // print message
         printf("%s\n", message);
         // print the board w/ player on it
@@ -209,24 +358,24 @@ int main()
         {
             if (moveInBounds(matrix, playerLocation, input)) {            
                 // Before updating the player's position, restore the previous cell
-                matrix[playerLocation[0]][playerLocation[1]] = playerCell;
+                matrix[playerLocation.y][playerLocation.x] = playerCell;
                 // clear the message
                 strcpy(message, "");
                 // Update the player's position
                 if (input == 'w') {
-                    playerLocation[0]--;
+                    playerLocation.y--;
                 } else if (input == 'a') {
-                    playerLocation[1]--;
+                    playerLocation.x--;
                 } else if (input == 's') {
-                    playerLocation[0]++;
+                    playerLocation.y++;
                 } else if (input == 'd') {;
-                    playerLocation[1]++;
+                    playerLocation.x++;
                 } else {
                     strcpy(message, "Error code 1: Invalid input");
                 }
                 // Store the original character of the new cell and place the player
-                playerCell = matrix[playerLocation[0]][playerLocation[1]];
-                matrix[playerLocation[0]][playerLocation[1]] = 'P';
+                playerCell = matrix[playerLocation.y][playerLocation.x];
+                matrix[playerLocation.y][playerLocation.x] = 'P';
             } else {
                 strcpy(message, "Invalid move");
             }
