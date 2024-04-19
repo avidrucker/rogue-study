@@ -399,6 +399,44 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
     return corridors;
 }
 
+
+int isLetter(char c) {
+    if (c >= 'a' && c <= 'z') {
+        return 1;
+    }
+    return 0;
+}
+
+
+struct Point *placeDoors(char matrix[ROWS][COLS], int maxDoors) {
+    struct Point *doors = malloc(maxDoors * sizeof(struct Point));
+    int placed = 0;
+    for (int i = 1; i < ROWS - 1; i++) {
+        for (int j = 1; j < COLS - 1; j++) {
+            // Check if the cell is a number
+            if (matrix[i][j] >= '0' && matrix[i][j] <= '9') {
+                // Check the eight neighbors
+                int left = isLetter(matrix[i-1][j]);
+                int right = isLetter(matrix[i+1][j]);
+                int up = isLetter(matrix[i][j-1]);
+                int down = isLetter(matrix[i][j+1]);
+                int topLeft = isLetter(matrix[i-1][j-1]);
+                int topRight = isLetter(matrix[i-1][j+1]);
+                int bottomLeft = isLetter(matrix[i+1][j-1]);
+                int bottomRight = isLetter(matrix[i+1][j+1]);
+                if (left + right + up + down + topLeft + topRight + bottomLeft + bottomRight == 2) {
+                    // Precisely 2 neighbors are letters, so place a door
+                    matrix[i][j] = '%';
+                    doors[placed] = (struct Point) {j, i};
+                    placed++;
+                }
+            }
+        }
+    }
+    return doors;
+}
+
+
 int main()
 {
     srand(time(NULL));
@@ -443,6 +481,9 @@ int main()
 
     // redraw the rooms so that they appear "on top of" the corridors
     redrawAllRooms(matrix, rooms, 9);
+
+    // place doors
+    placeDoors(matrix, MAX_DOORS);
 
     // TODO: player player 1 at the topleft of the top left room
     // initially place player onto the board
