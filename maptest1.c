@@ -709,8 +709,6 @@ int main()
     int farthestRoomIndex = farthestRoom(indexOfTopLeftRoom, ROOM_COUNT, connections);
     printf("The farthest room from the top left room is room %d\n", farthestRoomIndex);
 
-    //// TODO: place the exit 'E' in the farthest room, at a random point in the room
-
     // redraw the rooms so that they appear "on top of" the corridors
     //// TODO: uncomment this line when not debugging
     redrawAllRooms(matrix, rooms, 9);
@@ -730,6 +728,7 @@ int main()
     playerCell = matrix[playerLocation.y][playerLocation.x];
     matrix[playerLocation.y][playerLocation.x] = PLAYER_CHAR;
 
+    //// DONE: place the exit 'E' in the farthest room, at a random point in the room
     // place exit onto the board for now
     exitLocation = randomPointInRectangle(rooms[farthestRoomIndex]);
     matrix[exitLocation.y][exitLocation.x] = EXIT_CHAR;
@@ -743,7 +742,9 @@ int main()
 
     treasureRoomIndex = findFirstNonIgnoredOne(connectionsCount, ROOM_COUNT, indexOfTopLeftRoom, farthestRoomIndex);
     printf("The treasure room is room %d\n", treasureRoomIndex);
-
+    // place the treasure in the treasureRoom
+    treasureLocation = randomPointInRectangle(rooms[treasureRoomIndex]);
+    matrix[treasureLocation.y][treasureLocation.x] = TREASURE_CHAR;
     //// TODO: place treasure in a room that has only one connection that isn't the starting nor ending room
 
     // main game loop
@@ -765,7 +766,7 @@ int main()
         }
         else // not quitting
         {
-            if (moveInBounds(matrix, playerLocation, input) && pointIsDoorOrFloor(matrix, destinationPoint(playerLocation, input))) {            
+            if (pointIsDoorOrFloor(matrix, destinationPoint(playerLocation, input))) {            
                 // Before updating the player's position, restore the previous cell
                 matrix[playerLocation.y][playerLocation.x] = playerCell;
                 // clear the message
@@ -774,11 +775,25 @@ int main()
                 playerLocation = destinationPoint(playerLocation, input);
                 // Store the original character of the new cell and place the player
                 playerCell = matrix[playerLocation.y][playerLocation.x];
-                matrix[playerLocation.y][playerLocation.x] = 'P';
+                matrix[playerLocation.y][playerLocation.x] = PLAYER_CHAR;
+            } else if (matrix[destinationPoint(playerLocation, input).y][destinationPoint(playerLocation, input).x] == EXIT_CHAR) {
+                strcpy(message, "You win!");
+                matrix[playerLocation.y][playerLocation.x] = playerCell; // restore prev cell tile
+                playerLocation = destinationPoint(playerLocation, input); // update player location
+                matrix[playerLocation.y][playerLocation.x] = PLAYER_CHAR; // place player
+                break;
+            } else if (matrix[destinationPoint(playerLocation, input).y][destinationPoint(playerLocation, input).x] == TREASURE_CHAR) {
+                strcpy(message, "You found the treasure!");
+                // update treasure location to -1, -1
+                // update swap tile ("player cell") under player to be a floor tile
+                // update player location to be the treasure location
+                treasureLocation = (struct Point) {-1, -1};
+                matrix[playerLocation.y][playerLocation.x] = playerCell; // restore prev cell tile
+                playerLocation = destinationPoint(playerLocation, input); // update player location
+                playerCell = '.'; // store blank cell tile to update after player moves away from where the treasure was
+                matrix[playerLocation.y][playerLocation.x] = PLAYER_CHAR; // place player
             } else {
-                if(!moveInBounds(matrix, playerLocation, input)) {
-                    strcpy(message, "Out of bounds");
-                } else if(!pointIsDoorOrFloor(matrix, destinationPoint(playerLocation, input))) {
+                if(!pointIsDoorOrFloor(matrix, destinationPoint(playerLocation, input))) {
                     strcpy(message, "Invalid move");
                 } else {
                     strcpy(message, "Unknown error, code 001");
@@ -786,6 +801,15 @@ int main()
             }
         }
     }
+
+    // finally, print the last message and board state before ending the game
+    // clear the console
+    // system("clear"); // TODO: uncomment this line when not debugging
+    // print message
+    printf("%s\n", message);
+    // print the board w/ player on it
+    printMatrix(matrix, ROWS, COLS);
+
     printf("Thanks for playing!\n");
     free(rooms);
     free(corridors);
