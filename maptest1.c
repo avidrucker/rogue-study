@@ -64,6 +64,35 @@ void printMatrix(char matrix[][COLS], int rows, int cols)
     }
 }
 
+int pointIsDoorOrFloor(char matrix[][COLS], struct Point point) {
+    if (matrix[point.y][point.x] == '%' || matrix[point.y][point.x] == '.') {
+        return 1;
+    }
+    return 0;
+}
+
+struct Point destinationPoint(struct Point playerPos, char direction)
+{
+    struct Point destination = playerPos;
+    if (direction == 'w')
+    {
+        destination.y--;
+    }
+    else if (direction == 'a')
+    {
+        destination.x--;
+    }
+    else if (direction == 's')
+    {
+        destination.y++;
+    }
+    else if (direction == 'd')
+    {
+        destination.x++;
+    }
+    return destination;
+}
+
 int moveInBounds(char matrix[][COLS], struct Point playerPos, char direction)
 {
     if (direction == 'w' && playerPos.y > 0)
@@ -509,28 +538,24 @@ int main()
         }
         else // not quitting
         {
-            if (moveInBounds(matrix, playerLocation, input)) {            
+            if (moveInBounds(matrix, playerLocation, input) && pointIsDoorOrFloor(matrix, destinationPoint(playerLocation, input))) {            
                 // Before updating the player's position, restore the previous cell
                 matrix[playerLocation.y][playerLocation.x] = playerCell;
                 // clear the message
                 strcpy(message, "");
                 // Update the player's position
-                if (input == 'w') {
-                    playerLocation.y--;
-                } else if (input == 'a') {
-                    playerLocation.x--;
-                } else if (input == 's') {
-                    playerLocation.y++;
-                } else if (input == 'd') {;
-                    playerLocation.x++;
-                } else {
-                    strcpy(message, "Error code 1: Invalid input");
-                }
+                playerLocation = destinationPoint(playerLocation, input);
                 // Store the original character of the new cell and place the player
                 playerCell = matrix[playerLocation.y][playerLocation.x];
                 matrix[playerLocation.y][playerLocation.x] = 'P';
             } else {
-                strcpy(message, "Invalid move");
+                if(!moveInBounds(matrix, playerLocation, input)) {
+                    strcpy(message, "Out of bounds");
+                } else if(!pointIsDoorOrFloor(matrix, destinationPoint(playerLocation, input))) {
+                    strcpy(message, "Invalid move");
+                } else {
+                    strcpy(message, "Unknown error, code 001");
+                }
             }
         }
     }
