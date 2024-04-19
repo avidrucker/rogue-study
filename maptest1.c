@@ -101,29 +101,6 @@ struct Point destinationPoint(struct Point playerPos, char direction)
     return destination;
 }
 
-int moveInBounds(char matrix[][COLS], struct Point playerPos, char direction)
-{
-    if (direction == 'w' && playerPos.y > 0)
-    {
-        return 1;
-    }
-    else if (direction == 'a' && playerPos.x > 0)
-    {
-        return 1;
-    }
-    else if (direction == 's' && playerPos.y < ROWS - 1)
-    {
-        return 1;
-    }
-    else if (direction == 'd' && playerPos.x < COLS - 1)
-    {
-        return 1;
-    }
-    else
-    {
-        return 0;
-    }
-}
 
 int rectCollision(struct Rectangle a, struct Rectangle b)
 {
