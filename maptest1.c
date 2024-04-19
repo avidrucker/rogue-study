@@ -477,6 +477,36 @@ struct Point *placeDoors(char matrix[ROWS][COLS], int maxDoors) {
 }
 
 
+//// TODO: use this function to detect when a player is in a room and to display it 
+//         and its contents (monsters, exists, treasure, etc.)
+int detectPlayerRoom(struct Rectangle *rooms, int ROOM_COUNT, struct Point playerLocation) {
+    for (int i = 0; i < ROOM_COUNT; i++) {
+        struct Rectangle room = rooms[i];
+        // Check if the player is in the current room
+        if (playerLocation.x >= room.xPos && playerLocation.x < room.xPos + room.width &&
+            playerLocation.y >= room.yPos && playerLocation.y < room.yPos + room.height) {
+            // Return the index of the room the player is in
+            return i;
+        }
+    }
+    // Return -1 if the player is not in any room
+    return -1;
+}
+
+
+void fillRectWithStars(char matrix[][COLS], struct Rectangle *rects, int rectIndex, char fillChar) {
+    struct Rectangle rect = rects[rectIndex];
+    for (int x = rect.xPos + 1; x < rect.xPos + rect.width - 1; x++) {
+        for (int y = rect.yPos + 1; y < rect.yPos + rect.height - 1; y++) {
+            matrix[y][x] = fillChar;
+        }
+    }
+}
+
+
+// TODO: write function that detectsPlayerCorridor
+
+
 int main()
 {
     srand(time(NULL));
