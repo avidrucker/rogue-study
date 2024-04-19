@@ -4,9 +4,9 @@
 #include <time.h>
 
 // DONE: fix bug where sometimes rooms are not all connected within 50 epochs
-// TODO: feat conversion of room-corridor intersections to doors
+// DONE: feat conversion of room-corridor intersections to doors
 // DONE: figure out which room is the "first room" and place player there
-// TODO: place the exit in the "last room" (the room farthest from the first room)
+// DONE: place the exit in the "last room" (the room farthest from the first room)
 // TODO: add a win condition when the player reaches the exit
 // TODO: find a room that isn't the first nor last room that is only connected to 
 //       one other room, and mark this as the secret room to put treasure in, if no
@@ -38,7 +38,11 @@ int MAX_CORRIDOR_EPOCHS = 50;
 int MAX_ROOM_EPOCHS = 10;
 int MAX_DOORS = 20;
 int CORRIDOR_COUNT = 15;
+char PLAYER_CHAR = 'P';
+char EXIT_CHAR = 'E';
+char TREASURE_CHAR = 'T';
 // int debug_once = 1;
+int randSeed = 0; // NULL means random
 
 void fillMatrix(char matrix[][COLS], int rows, int cols, char input)
 {
@@ -319,6 +323,39 @@ int isFullyTransitive(int numRooms, int connections[][numRooms]) {
 }
 
 
+int farthestRoom(int startRoomIndex, int numRooms, int connections[][numRooms]) {
+    int distances[numRooms];
+    for (int i = 0; i < numRooms; i++) {
+        distances[i] = -1;
+    }
+    distances[startRoomIndex] = 0;
+
+    int queue[numRooms];
+    int front = 0, back = 0;
+    queue[back++] = startRoomIndex;
+
+    while (front != back) {
+        int currentRoom = queue[front++];
+        for (int i = 0; i < numRooms; i++) {
+            if (connections[currentRoom][i] && distances[i] == -1) {
+                distances[i] = distances[currentRoom] + 1;
+                queue[back++] = i;
+            }
+        }
+    }
+
+    int maxDistance = -1, farthestRoomIndex = -1;
+    for (int i = 0; i < numRooms; i++) {
+        if (distances[i] > maxDistance) {
+            maxDistance = distances[i];
+            farthestRoomIndex = i;
+        }
+    }
+
+    return farthestRoomIndex;
+}
+
+
 struct Rectangle clipCorridor(struct Rectangle room1, struct Rectangle room2, struct Rectangle corridor, int isTall) {
     struct Rectangle topRoom, bottomRoom, leftRoom, rightRoom;
 
@@ -566,12 +603,55 @@ void fillRectWithStars(char matrix[][COLS], struct Rectangle *rects, int rectInd
 }
 
 
-// TODO: write function that detectsPlayerCorridor
+struct Point randomPointInRectangle(struct Rectangle rect) {
+    struct Point point;
+    point.x = rect.xPos + 1 + rand() % (rect.width - 2);
+    point.y = rect.yPos + 1 + rand() % (rect.height - 2);
+    return point;
+}
+
+
+// returns an array of ints where each index i is the 
+// number of connections room i has
+int* countConnections(int numRooms, int connections[][numRooms]) {
+    int* connectionsCount = malloc(numRooms * sizeof(int));
+    for (int i = 0; i < numRooms; i++) {
+        connectionsCount[i] = 0;
+        for (int j = 0; j < numRooms; j++) {
+            if (connections[i][j]) {
+                connectionsCount[i]++;
+            }
+        }
+    }
+    return connectionsCount;
+}
+
+
+int findFirstNonIgnoredOne(int* arr, int length, int ignoreIndex1, int ignoreIndex2) {
+    for (int i = 0; i < length; i++) {
+        if (i == ignoreIndex1 || i == ignoreIndex2) {
+            continue;
+        }
+        if (arr[i] == 1) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+//// TODO: write function that detectsPlayerCorridor
+//// TODO: write function that detects when a player has entered a room and floods that 
+//         room w/ a char to indicate that it is now visible, and it also places anything 
+//         that exists in the room, such as monsters, treasure, exits, etc.
 
 
 int main()
 {
-    srand(time(NULL));
+    randSeed = 0;
+    //// TODO: change back when in prod
+    // srand(time(NULL));
+    srand(randSeed);
     char matrix[ROWS][COLS]; // the board
     char input; // character move input: 'wasd' or 'q'
     // initialize display message that gives player info regarding out of bounds, etc.
@@ -582,15 +662,19 @@ int main()
     // DONE: set player's location to be in a room (make sure to prevent placement on a wall)
     // DONE: set player's location to be in the "first room" which may be farther away 
     // from the level end, or simply just in room #0 (went with topleft room for now)
-    struct Point playerLocation = {0, 0};
+    struct Point playerLocation = {-1, -1};
+    struct Point exitLocation = {-1, -1};
+    struct Point treasureLocation = {-1, -1};
     // store the tile type the player is on currently
     char playerCell = '?';
 
     struct Rectangle *rooms;
     struct Rectangle topLeftRoom;
     int indexOfTopLeftRoom;
+    int treasureRoomIndex;
     int connections[ROOM_COUNT][ROOM_COUNT]; // an adjacency matrix to store connections between rooms
     struct Rectangle *corridors; // the collection of hallways connecting the rooms
+    int* connectionsCount; // an array of ints where each index i is the number of connections room i has
     int roomEpochs = 0;
 
     // setup loop to generate a level
@@ -644,6 +728,12 @@ int main()
         }
     }
 
+    // denote the farthest room from the player's initial starting room
+    int farthestRoomIndex = farthestRoom(indexOfTopLeftRoom, ROOM_COUNT, connections);
+    printf("The farthest room from the top left room is room %d\n", farthestRoomIndex);
+
+    //// TODO: place the exit 'E' in the farthest room, at a random point in the room
+
     // redraw the rooms so that they appear "on top of" the corridors
     //// TODO: uncomment this line when not debugging
     redrawAllRooms(matrix, rooms, 9);
@@ -657,10 +747,27 @@ int main()
 
     // DONE: player player 1 at the topleft of the top left room
     // initially place player onto the board
+    //// TODO: place player 1 at a random spot in the top left room
     playerLocation.x = topLeftRoom.xPos+2;
     playerLocation.y = topLeftRoom.yPos+2;
     playerCell = matrix[playerLocation.y][playerLocation.x];
-    matrix[playerLocation.y][playerLocation.x] = 'P';
+    matrix[playerLocation.y][playerLocation.x] = PLAYER_CHAR;
+
+    // place exit onto the board for now
+    exitLocation = randomPointInRectangle(rooms[farthestRoomIndex]);
+    matrix[exitLocation.y][exitLocation.x] = EXIT_CHAR;
+
+    // count the number of connections each room has
+    connectionsCount = countConnections(ROOM_COUNT, connections);
+    // debugging message
+    // for (int i = 0; i < ROOM_COUNT; i++) {
+    //     printf("Room %d has %d connections\n", i, connectionsCount[i]);
+    // }
+
+    treasureRoomIndex = findFirstNonIgnoredOne(connectionsCount, ROOM_COUNT, indexOfTopLeftRoom, farthestRoomIndex);
+    printf("The treasure room is room %d\n", treasureRoomIndex);
+
+    //// TODO: place treasure in a room that has only one connection that isn't the starting nor ending room
 
     // main game loop
     while (1)
@@ -704,6 +811,8 @@ int main()
     }
     printf("Thanks for playing!\n");
     free(rooms);
+    free(corridors);
+    free(connectionsCount);
 
     return 0;
 }
