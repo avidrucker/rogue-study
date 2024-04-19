@@ -34,8 +34,10 @@ struct Point {
 int ROWS = 30;
 int COLS = 60;
 int ROOM_COUNT = 9;
-int MAX_EPOCHS = 200;
+int MAX_CORRIDOR_EPOCHS = 50;
+int MAX_ROOM_EPOCHS = 10;
 int MAX_DOORS = 20;
+int CORRIDOR_COUNT = 15;
 
 void fillMatrix(char matrix[][COLS], int rows, int cols, char input)
 {
@@ -394,7 +396,7 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         }
         iterationCount++;
 
-        if(epoch > MAX_EPOCHS) {
+        if(epoch > MAX_CORRIDOR_EPOCHS) {
             //// TODO: trigger a new map generation because the current room setup seems
             //         to make placing corridors difficult
             printf("Epoch limit reached, returning corridors\n");
@@ -426,6 +428,15 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
     }
     printf("corridors completed on epoch: %d\n", epoch);
     return corridors;
+}
+
+
+void printCorridors(char matrix[][COLS], struct Rectangle *corridors, int numCorridors) {
+    printf("Corridors:\n");
+    for (int i = 0; i < numCorridors; i++) {
+        char corridorChar = matrix[corridors[i].yPos][corridors[i].xPos];
+        printf("Corridor %d: x=%d, y=%d, width=%d, height=%d, char='%c'\n", i, corridors[i].xPos, corridors[i].yPos, corridors[i].width, corridors[i].height, corridorChar);
+    }
 }
 
 
@@ -482,31 +493,62 @@ int main()
     struct Point playerLocation = {0, 0};
     // remember the tile type the player is on currently
     char playerCell = '.';
-    // clear the board
-    fillMatrix(matrix, ROWS, COLS, '-');
-    // place rooms
-    struct Rectangle *rooms = placeRooms(matrix, ROOM_COUNT);
 
-    // find the top left room
-    struct Rectangle topLeftRoom = findTopLeftRoom(rooms, ROOM_COUNT);
+    struct Rectangle *rooms;
+    struct Rectangle topLeftRoom;
+    int indexOfTopLeftRoom;
+    int connections[ROOM_COUNT][ROOM_COUNT]; // an adjacency matrix to store connections between rooms
+    struct Rectangle *corridors; // the collection of hallways connecting the rooms
+    int roomEpochs = 0;
 
-    // get the topLeftRoom index
-    int indexOfTopLeftRoom = getRoomIndexFromRect(topLeftRoom, rooms, ROOM_COUNT);
+    while(1) {
+        // clear the board
+        fillMatrix(matrix, ROWS, COLS, '-');
+        // place rooms
+        rooms = placeRooms(matrix, ROOM_COUNT);
 
-    // print the details of the top left room (debugging message)
-    printRoomDetails(matrix, rooms, indexOfTopLeftRoom);
+        // find the top left room
+        topLeftRoom = findTopLeftRoom(rooms, ROOM_COUNT);
 
-    // an adjacency matrix to store connections between rooms
-    int connections[ROOM_COUNT][ROOM_COUNT]; 
-    // initialize connections to all 0's to indicate there are no room connections yet
-    for (int i = 0; i < ROOM_COUNT; i++) {
-        for (int j = 0; j < ROOM_COUNT; j++) {
-            connections[i][j] = 0;
+        // get the topLeftRoom index
+        indexOfTopLeftRoom = getRoomIndexFromRect(topLeftRoom, rooms, ROOM_COUNT);
+
+        // print the details of the top left room (debugging message)
+        // printRoomDetails(matrix, rooms, indexOfTopLeftRoom);
+
+        // initialize connections to all 0's to indicate there are no room connections yet
+        for (int i = 0; i < ROOM_COUNT; i++) {
+            for (int j = 0; j < ROOM_COUNT; j++) {
+                connections[i][j] = 0;
+            }
+        }
+
+        // place corridors
+        corridors = placeCorridors(matrix, rooms, ROOM_COUNT, CORRIDOR_COUNT, connections);
+
+        // print corridors (debugging message)
+        // printCorridors(matrix, corridors, CORRIDOR_COUNT);
+
+        // get the 8th corridor from corridors
+        struct Rectangle eighthCorridor = corridors[7];
+        if(eighthCorridor.xPos == -1) {
+            printf("Error: eighth corridor not found, resetting rooms\n");
+            printf("Ending room epoch %d\n", roomEpochs);
+            if(roomEpochs > MAX_ROOM_EPOCHS) {
+                printf("Room epoch limit reached, returning to main\n");
+                printf("There was difficulty rendering the level, please try again\n");
+                return 1;
+            }
+            // clear rooms and start over
+            // for (int i = 0; i < ROOM_COUNT; i++) {
+            //     struct Rectangle noRoom = {-1, -1, -1, -1};
+            //     rooms[i] = noRoom;
+            // }
+        } else {
+            printf("Eighth corridor found, continuing with level setup\n");
+            break;
         }
     }
-
-    // place corridors
-    struct Rectangle *corridors = placeCorridors(matrix, rooms, ROOM_COUNT, 15, connections);
 
     // redraw the rooms so that they appear "on top of" the corridors
     redrawAllRooms(matrix, rooms, 9);
