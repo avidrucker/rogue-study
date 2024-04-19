@@ -3,9 +3,9 @@
 #include <string.h>
 #include <time.h>
 
-// TODO: fix bug where sometimes rooms are not all connected within 50 epochs
+// DONE: fix bug where sometimes rooms are not all connected within 50 epochs
 // TODO: feat conversion of room-corridor intersections to doors
-// TODO: figure out which room is the "first room" and place player there
+// DONE: figure out which room is the "first room" and place player there
 // TODO: place the exit in the "last room" (the room farthest from the first room)
 // TODO: add a win condition when the player reaches the exit
 // TODO: find a room that isn't the first nor last room that is only connected to 
@@ -16,6 +16,7 @@
 //       room 4 is the last room. If there are two rooms or more that are only 
 //       connected to one other room, then randomly choose one of them to be the 
 //       secret room.
+// DONE: fix bug where corridors sometimes lead to dead ends (remove all dead ends)
 
 struct Rectangle
 {
@@ -33,7 +34,8 @@ struct Point {
 int ROWS = 30;
 int COLS = 60;
 int ROOM_COUNT = 9;
-int MAX_EPOCHS = 100;
+int MAX_EPOCHS = 200;
+int MAX_DOORS = 20;
 
 void fillMatrix(char matrix[][COLS], int rows, int cols, char input)
 {
@@ -99,6 +101,14 @@ int rectCollision(struct Rectangle a, struct Rectangle b)
     {
         return 0;
     }
+}
+
+int pointInRect(struct Rectangle rect, struct Point point) {
+    if (point.x >= rect.xPos && point.x < rect.xPos + rect.width &&
+        point.y >= rect.yPos && point.y < rect.yPos + rect.height) {
+        return 1;
+    }
+    return 0;
 }
 
 void placeRoom(char matrix[][COLS], int x, int y, int width, int height, char wallChar)
@@ -204,17 +214,18 @@ struct Rectangle findTopLeftRoom(struct Rectangle *rooms, int numRooms) {
         return noRoom;
     }
 
-    struct Rectangle topLeftRoom = rooms[0]; // Initialize with the first room
-    int roomIndex = 0;
+    struct Rectangle topLeftRoom = rooms[0];
+    int minDistance = rooms[0].xPos + rooms[0].yPos;
+
     for (int i = 1; i < numRooms; i++) {
-        roomIndex++;
-        if (rooms[i].xPos < topLeftRoom.xPos || rooms[i].yPos < topLeftRoom.yPos) {
+        int distance = rooms[i].xPos + rooms[i].yPos;
+        if (distance < minDistance) {
             topLeftRoom = rooms[i];
+            minDistance = distance;
         }
     }
 
-    // debugging message
-    printf("The top left room is room number %d is at (%d, %d)\n", roomIndex, topLeftRoom.xPos, topLeftRoom.yPos);
+    printf("The top left room is at (%d, %d)\n", topLeftRoom.xPos, topLeftRoom.yPos);
 
     return topLeftRoom;
 }
@@ -244,14 +255,6 @@ void printRoomDetails(char matrix[][COLS], struct Rectangle *rooms, int roomInde
     printf("char at (x: %d, y: %d): %c\n", room.xPos+1, room.yPos+1, matrix[room.yPos+1][room.xPos+1]);
 }
 
-
-int pointInRect(struct Point point, struct Rectangle rect) {
-    if (point.x >= rect.xPos && point.x < rect.xPos + rect.width &&
-        point.y >= rect.yPos && point.y < rect.yPos + rect.height) {
-        return 1;
-    }
-    return 0;
-}
 
 void dfs(int room, int numRooms, int connections[][numRooms], int visited[]) {
     visited[room] = 1;
@@ -300,7 +303,8 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         }
     }
 
-    printf("Initial matrix fully transitive: %d\n", isFullyTransitive(numRooms, connections));
+    // debugging message
+    // printf("Initial matrix fully transitive: %d\n", isFullyTransitive(numRooms, connections));
 
     struct Rectangle *corridors = malloc(numCorridors * sizeof(struct Rectangle));
     while (isFullyTransitive(numRooms, connections) == 0 && placed < numCorridors) {
@@ -310,14 +314,18 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         int x = rand() % (COLS - width - 2) + 2;
         int y = rand() % (ROWS - height - 2) + 2;
         struct Rectangle corridor = {x, y, width, height};
+        int isVertical = width == 3;
 
         int intersectedRooms[3]; // changed to 3 to include the case where the corridor intersects more than 2 rooms
         int intersections = 0;
         for (int i = 0; i < numRooms; i++) {
+            // struct Rectangle shrunkCorridor = {corridor.xPos+1, corridor.yPos+1, corridor.width-2, corridor.height-2};
+            // TODO: test shrinking corridors to see if this helps w/ intersections
+            // printf("shrunken corridor dimensions: x: %d, y: %d, width: %d, height: %d\n", shrunkCorridor.xPos, shrunkCorridor.yPos, shrunkCorridor.width, shrunkCorridor.height);
             struct Rectangle shrunkRoom = {rooms[i].xPos+2, rooms[i].yPos+2, rooms[i].width-4, rooms[i].height-4};
             if (rectCollision(corridor, shrunkRoom)) {
                 if(intersections > 2) {
-                    printf("Error: corridor intersects more than 2 rooms\n");
+                    // printf("Error: corridor intersects more than 2 rooms\n");
                     break;
                 } else {
                     intersectedRooms[intersections] = i;
@@ -330,29 +338,43 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
             // Check if the rooms are already connected
             if (connections[intersectedRooms[0]][intersectedRooms[1]]) {
                 // The rooms are already connected, so skip this corridor
-                printf("Rooms %d and %d are already connected, skipping adding this corridor\n", intersectedRooms[0], intersectedRooms[1]);
+                // printf("Rooms %d and %d are already connected, skipping adding this corridor\n", intersectedRooms[0], intersectedRooms[1]);
             } else {
-                // Place the corridor
-                printf("Placing corridor %c\n", placed + 'a');
-                placeRoom(matrix, x, y, width, height, placed + 'a');
-                corridors[placed] = corridor;
-                placed++;
-                // Update the connections matrix
-                connections[intersectedRooms[0]][intersectedRooms[1]] = 1;
-                connections[intersectedRooms[1]][intersectedRooms[0]] = 1;
+                // check to confirm that all 4 corners of the corridor are inside a room
+                struct Point topLeft = {corridor.xPos, corridor.yPos};
+                struct Point topRight = {corridor.xPos + corridor.width - 1, corridor.yPos};
+                struct Point bottomLeft = {corridor.xPos, corridor.yPos + corridor.height - 1};
+                struct Point bottomRight = {corridor.xPos + corridor.width - 1, corridor.yPos + corridor.height - 1};
+                int topLeftInRoom = pointInRect(rooms[intersectedRooms[0]], topLeft) || pointInRect(rooms[intersectedRooms[1]], topLeft);
+                int topRightInRoom = pointInRect(rooms[intersectedRooms[0]], topRight) || pointInRect(rooms[intersectedRooms[1]], topRight);
+                int bottomLeftInRoom = pointInRect(rooms[intersectedRooms[0]], bottomLeft) || pointInRect(rooms[intersectedRooms[1]], bottomLeft);
+                int bottomRightInRoom = pointInRect(rooms[intersectedRooms[0]], bottomRight) || pointInRect(rooms[intersectedRooms[1]], bottomRight);
+                if(topLeftInRoom && topRightInRoom && bottomLeftInRoom && bottomRightInRoom) {
+                    // Place the corridor
+                    // printf("Placing corridor %c\n", placed + 'a');
+                    placeRoom(matrix, x, y, width, height, placed + 'a');
+                    corridors[placed] = corridor;
+                    placed++;
+                    // Update the connections matrix
+                    connections[intersectedRooms[0]][intersectedRooms[1]] = 1;
+                    connections[intersectedRooms[1]][intersectedRooms[0]] = 1;
+                } else {
+                    // printf("Error: corridor intersects 2 rooms but not all 4 corners are inside a room\n");
+                }
             }
         }
         iterationCount++;
 
         if(epoch > MAX_EPOCHS) {
-            // TODO: either throw an error here, increase the epoch limit, or figure out a different strategy
+            //// TODO: trigger a new map generation because the current room setup seems
+            //         to make placing corridors difficult
             printf("Epoch limit reached, returning corridors\n");
             return corridors;
         }
 
         // if we have run 100+ iterations, reset the matrix & corridors and try again
         if(iterationCount > 100) {
-            printf("Resetting matrix and corridors\n");
+            // printf("Resetting matrix and corridors\n");
             placed = 0;
             iterationCount = 0;
             epoch++;
