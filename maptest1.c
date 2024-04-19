@@ -316,6 +316,65 @@ int isFullyTransitive(int numRooms, int connections[][numRooms]) {
     return 1; // Fully transitive
 }
 
+
+struct Rectangle clipCorridor(struct Rectangle room1, struct Rectangle room2, struct Rectangle corridor, int isTall) {
+    struct Rectangle topRoom, bottomRoom, leftRoom, rightRoom;
+
+    // if(debug_once) {
+    //     printf("Clipping the first corridor w/ room1 and room2\n");
+    //     if(isTall) {
+    //         printf("Corridor is tall\n");
+    //     } else {
+    //         printf("Corridor is wide\n");
+    //     }
+    //     printf("room1: x: %d, y: %d, width: %d, height: %d\n", room1.xPos, room1.yPos, room1.width, room1.height);
+    //     printf("room2: x: %d, y: %d, width: %d, height: %d\n", room2.xPos, room2.yPos, room2.width, room2.height);
+    //     printf("corridor: x: %d, y: %d, width: %d, height: %d\n", corridor.xPos, corridor.yPos, corridor.width, corridor.height);
+    // }
+
+    // Determine which room is on top/bottom or left/right
+    if (room1.yPos < room2.yPos) {
+        topRoom = room1;
+        bottomRoom = room2;
+    } else {
+        topRoom = room2;
+        bottomRoom = room1;
+    }
+
+    if (room1.xPos < room2.xPos) {
+        leftRoom = room1;
+        rightRoom = room2;
+    } else {
+        leftRoom = room2;
+        rightRoom = room1;
+    }
+
+    if (isTall) {
+        // Clip the corridor vertically
+        corridor.yPos = topRoom.yPos + topRoom.height - 1;
+        corridor.height = bottomRoom.yPos - corridor.yPos + 1;
+        if(corridor.height < 3) {
+            corridor.height = 3;
+        }
+    } else {
+        // Clip the corridor horizontally
+        corridor.xPos = leftRoom.xPos + leftRoom.width - 1;
+        corridor.width = rightRoom.xPos - corridor.xPos + 1;
+        if(corridor.width < 3) {
+            corridor.width = 3;
+        }
+    }
+
+    // if(debug_once) {
+    //     printf("Clipped corridor: x: %d, y: %d, width: %d, height: %d\n", corridor.xPos, corridor.yPos, corridor.width, corridor.height);
+    //     debug_once = 0;
+    // }
+
+    return corridor;
+}
+
+
+// TODO: reject corridors that intersect other corridors
 // DONE: modify placeCorridors so that it has enough corridors to connect each room to at least one other room,
 //       and that each room is reachable (i.e. there are no isolated rooms), this will involve removing param 'int numCorridors' 
 // TODO: modify placeCorridors so that two corridors can be placed down, one that is horizontal and one that is vertical
