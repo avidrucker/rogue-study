@@ -38,6 +38,7 @@ int MAX_CORRIDOR_EPOCHS = 50;
 int MAX_ROOM_EPOCHS = 10;
 int MAX_DOORS = 20;
 int CORRIDOR_COUNT = 15;
+// int debug_once = 1;
 
 void fillMatrix(char matrix[][COLS], int rows, int cols, char input)
 {
@@ -67,7 +68,8 @@ void printMatrix(char matrix[][COLS], int rows, int cols)
 }
 
 int pointIsDoorOrFloor(char matrix[][COLS], struct Point point) {
-    if (matrix[point.y][point.x] == '%' || matrix[point.y][point.x] == '.') {
+    if (matrix[point.y][point.x] == '%' || matrix[point.y][point.x] == '.' || 
+            matrix[point.y][point.x] == '*') {
         return 1;
     }
     return 0;
@@ -121,10 +123,10 @@ int moveInBounds(char matrix[][COLS], struct Point playerPos, char direction)
 
 int rectCollision(struct Rectangle a, struct Rectangle b)
 {
-    if (a.xPos < b.xPos + b.width &&
-        a.xPos + a.width > b.xPos &&
-        a.yPos < b.yPos + b.height &&
-        a.yPos + a.height > b.yPos)
+    if (a.xPos <= b.xPos + b.width &&
+        a.xPos + a.width >= b.xPos &&
+        a.yPos <= b.yPos + b.height &&
+        a.yPos + a.height >= b.yPos)
     {
         return 1;
     }
@@ -404,27 +406,26 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         int x = rand() % (COLS - width - 2) + 2;
         int y = rand() % (ROWS - height - 2) + 2;
         struct Rectangle corridor = {x, y, width, height};
-        int isVertical = width == 3;
 
         int intersectedRooms[3]; // changed to 3 to include the case where the corridor intersects more than 2 rooms
-        int intersections = 0;
+        int corrRoomIntersections = 0;
         for (int i = 0; i < numRooms; i++) {
             // struct Rectangle shrunkCorridor = {corridor.xPos+1, corridor.yPos+1, corridor.width-2, corridor.height-2};
             // TODO: test shrinking corridors to see if this helps w/ intersections
             // printf("shrunken corridor dimensions: x: %d, y: %d, width: %d, height: %d\n", shrunkCorridor.xPos, shrunkCorridor.yPos, shrunkCorridor.width, shrunkCorridor.height);
             struct Rectangle shrunkRoom = {rooms[i].xPos+2, rooms[i].yPos+2, rooms[i].width-4, rooms[i].height-4};
             if (rectCollision(corridor, shrunkRoom)) {
-                if(intersections > 2) {
+                if(corrRoomIntersections > 2) {
                     // printf("Error: corridor intersects more than 2 rooms\n");
                     break;
                 } else {
-                    intersectedRooms[intersections] = i;
-                    intersections++;
+                    intersectedRooms[corrRoomIntersections] = i;
+                    corrRoomIntersections++;
                 }
             }
         }
 
-        if (intersections == 2) {
+        if (corrRoomIntersections == 2) {
             // Check if the rooms are already connected
             if (connections[intersectedRooms[0]][intersectedRooms[1]]) {
                 // The rooms are already connected, so skip this corridor
@@ -442,7 +443,9 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
                 if(topLeftInRoom && topRightInRoom && bottomLeftInRoom && bottomRightInRoom) {
                     // Place the corridor
                     // printf("Placing corridor %c\n", placed + 'a');
-                    placeRoom(matrix, x, y, width, height, placed + 'a');
+                    // Clip the corridor so it doesn't clip through the rooms
+                    corridor = clipCorridor(rooms[intersectedRooms[0]], rooms[intersectedRooms[1]], corridor, isTall);
+                    placeRoom(matrix, corridor.xPos, corridor.yPos, corridor.width, corridor.height, placed + 'a'); // note: adding + 'a' converts int to char, starting at 'a'
                     corridors[placed] = corridor;
                     placed++;
                     // Update the connections matrix
@@ -580,8 +583,8 @@ int main()
     // DONE: set player's location to be in the "first room" which may be farther away 
     // from the level end, or simply just in room #0 (went with topleft room for now)
     struct Point playerLocation = {0, 0};
-    // remember the tile type the player is on currently
-    char playerCell = '.';
+    // store the tile type the player is on currently
+    char playerCell = '?';
 
     struct Rectangle *rooms;
     struct Rectangle topLeftRoom;
@@ -590,6 +593,7 @@ int main()
     struct Rectangle *corridors; // the collection of hallways connecting the rooms
     int roomEpochs = 0;
 
+    // setup loop to generate a level
     while(1) {
         // clear the board
         fillMatrix(matrix, ROWS, COLS, '-');
@@ -612,6 +616,7 @@ int main()
             }
         }
 
+        // debug_once = 1;
         // place corridors
         corridors = placeCorridors(matrix, rooms, ROOM_COUNT, CORRIDOR_COUNT, connections);
 
@@ -640,17 +645,24 @@ int main()
     }
 
     // redraw the rooms so that they appear "on top of" the corridors
+    //// TODO: uncomment this line when not debugging
     redrawAllRooms(matrix, rooms, 9);
 
     // place doors
     placeDoors(matrix, MAX_DOORS);
 
-    // TODO: player player 1 at the topleft of the top left room
+    // mark top left room as "visible" by filling it with stars
+    //// TODO: uncomment this line when not debugging
+    fillRectWithStars(matrix, rooms, indexOfTopLeftRoom, '*');
+
+    // DONE: player player 1 at the topleft of the top left room
     // initially place player onto the board
     playerLocation.x = topLeftRoom.xPos+2;
     playerLocation.y = topLeftRoom.yPos+2;
+    playerCell = matrix[playerLocation.y][playerLocation.x];
     matrix[playerLocation.y][playerLocation.x] = 'P';
 
+    // main game loop
     while (1)
     {
         // clear the console
