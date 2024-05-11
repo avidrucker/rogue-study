@@ -3,6 +3,15 @@
 #include <string.h>
 #include <time.h>
 
+/* DESCRIPTION OF STUDY
+
+This version of the study focuses on creating rooms randomly on a grid, then connecting them with corridors.
+The rooms are generated purely randomly and checked for collisions with other rooms. The corridors are also
+generated randomly and checked for intersections with rooms. The player is placed in the top left room and the
+exit is placed in the farthest room from the top left room. The player can move around the grid using WASD.
+
+*/
+
 // DONE: fix bug where sometimes rooms are not all connected within 50 epochs
 // DONE: feat conversion of room-corridor intersections to doors
 // DONE: figure out which room is the "first room" and place player there
