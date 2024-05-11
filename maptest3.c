@@ -66,7 +66,7 @@ char TREASURE_CHAR = 'T';
 int randSeed = 0; // NULL means random
 int printNotQuit = 1; // when we quit, we don't reprint the board (1 means print the board, 0 means don't print the board)
 int quadrantsUsed[9] = {-1}; // To track used quadrants
-int wallsUsed[9][9] = {{-1}}; // To track used walls between rooms
+int wallsUsed[9][9] = {{0}}; // To track used walls between rooms
 int neighbors[8] = {-1}; // To track the neighbors of a room
 struct Point* firstWallPoint; // To track the start of a corridor
 struct Point* secondWallPoint; // To track the end of a corridor
@@ -85,7 +85,7 @@ void printQuadrantsUsed (int quadsUsed[9]) {
 }
 
 // debugging function
-void printWallsUsed (int wallsUsed[MAX_ROOM_COUNT][4]) {
+void printWallsUsed () {
     for (int i = 0; i < MAX_ROOM_COUNT; i++) {
         printf("Room %d walls: %d, %d, %d, %d\n", i, wallsUsed[i][0], wallsUsed[i][1], wallsUsed[i][2], wallsUsed[i][3]);
     }
@@ -470,6 +470,7 @@ int areAdjacent(int room1Index, int room2Index) {
     return adjacent[room1Index][room2Index];
 }
 
+//// TODO: remove mod 9 from calculate neighbors and return back 0 from areAdjacent if either params are out of bounds (below 0 or above 8)
 void calculateNeighbors(int roomIndex) {
     int upShift = (roomIndex - 3 + 9) % 9;
     int upRightShift = (roomIndex - 2 + 9) % 9;
@@ -525,20 +526,20 @@ struct Point *getRandomPointOnWall(struct Rectangle room, int direction) {
     
     switch (direction) {
         case 0: // North
-            (*point).x = room.xPos + rand() % room.width;
+            (*point).x = (room.xPos + 1) + rand() % (room.width - 4);
             (*point).y = room.yPos;
             break;
         case 2: // East
-            (*point).x = room.xPos + room.width - 1;
-            (*point).y = room.yPos + rand() % room.height;
+            (*point).x = room.xPos + room.width - 2;
+            (*point).y = room.yPos + rand() % (room.height - 4) + 1;
             break;
         case 4: // South
-            (*point).x = room.xPos + rand() % room.width;
+            (*point).x = (room.xPos + 1) + rand() % (room.width - 4);
             (*point).y = room.yPos + room.height - 1;
             break;
         case 6: // West
-            (*point).x = room.xPos;
-            (*point).y = room.yPos + rand() % room.height;
+            (*point).x = room.xPos + 1;
+            (*point).y = room.yPos + rand() % (room.height - 4) + 1;
             break;
         default:
             // Invalid direction
@@ -555,6 +556,7 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
 
     struct Rectangle *corridors = malloc(numRooms * sizeof(struct Rectangle));
     int placed = 0;
+    char pathLetter = '1'; // 'a' for testing
 
     while (!isFullyTransitive(numRooms, connections)) {
 
@@ -563,7 +565,6 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         int room2Index = (room1Index + 1 + rand() % (numRooms - 1)) % numRooms;
         int room1Quad = rooms[room1Index].wallChar - '0';
         int room2Quad = rooms[room2Index].wallChar - '0';
-        char pathLetter = '#'; // 'a' for testing
 
         /// TODO: rewrite this logic so that it is more readable
         // check to make sure that the rooms are in valid quadrants
@@ -591,24 +592,38 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         // we can place a corridor between them
         if (!connections[room1Index][room2Index] && areAdjacent(room1Quad, room2Quad) != -1) {
 
-            printf("!!! Placing corridor between rooms %d and %d in quads %d and %d\n", room1Index, room2Index, room1Quad, room2Quad);   
+            printf("!!! Attempting to place a corridor between rooms %d and %d in quads %d and %d\n", room1Index, room2Index, room1Quad, room2Quad);   
+            
+            /// TODO: detect if the rooms are cardinally or diagonally adjacent
 
-            if(room1Quad == 7 && room2Quad == 8) {
-                printf("   Room 7 and 8 are adjacent\n");
-                printf("   Which walls of room 7 can connected to room 8?\n");
-                printf("   Room 7 walls: north %d, east %d, south %d, west %d\n", wallsUsed[7][0], wallsUsed[7][1], wallsUsed[7][2], wallsUsed[7][3]);
-                printf("   Room 8 walls: north %d, east %d, south %d, west %d\n", wallsUsed[8][0], wallsUsed[8][1], wallsUsed[8][2], wallsUsed[8][3]);
-                printf("   In this case, we want to connect the east wall of room 7 to the west wall of room 8\n");
-                printf("   The adjacent matrix at 7,8 is %d\n", adjacent[7][8]);
-                printf("   Printing out the matrix of adjacent rooms\n");
-                calculateNeighbors(7);
-                printCurrentNeighbors();
-                printf("   The facing wall direction from 7 to 8 is %d\n", getFacingWallDirection(7, 8));
-                int wall1 = getFacingWallDirection(7, 8);
-                clearNeighbors(neighbors);
-                calculateNeighbors(8);
-                printf("   The facing wall direction from 8 to 7 is %d\n", getFacingWallDirection(8, 7));
-                int wall2 = getFacingWallDirection(8, 7);
+            calculateNeighbors(room1Quad);
+            // printCurrentNeighbors();
+            // printf("   The facing wall direction from %d to %d is %d\n", room1Quad, room2Quad, getFacingWallDirection(room1Quad, room2Quad));
+            int wall1 = getFacingWallDirection(room1Quad, room2Quad);
+            if(wall1 % 2 == 1) {
+                printf("Diagonal detected...\n");
+                // collapse wall1 to either nearest horizontal or vertical wall (randomly either +1 or -1)
+                wall1 += (rand() % 2) ? 1 : -1;
+            }
+            clearNeighbors(neighbors);
+            calculateNeighbors(room2Quad);
+            // printf("   The facing wall direction from %d to %d is %d\n", room2Quad, room1Quad, getFacingWallDirection(room2Quad, room1Quad));
+            int wall2 = getFacingWallDirection(room2Quad, room1Quad);
+            if(wall2 % 2 == 1) {
+                printf("Diagonal detected...");
+                // collapse wall1 to either nearest horizontal or vertical wall (randomly either +1 or -1)
+                wall2 += (rand() % 2) ? 1 : -1;
+            }
+            // convert from 8 compass directions (0-7) to cardinal onyl direction (0-3)
+            wall1 /= 2;
+            wall2 /= 2;
+
+            /// TODO: print out which walls are being used here
+
+            if(wallsUsed[room1Index][wall1] || wallsUsed[room2Index][wall2]) {
+                printf("Error: wall %d of quad %d OR wall %d of quad %d are already used\n", wall1, room1Quad, wall2, room2Quad);
+                continue;
+            } else {
                 // let's now pick a wall of room 7 to connect to room 8
                 // what walls are available to connect to room 8?
                 // the eastern wall is the only wall that can connect to room 8
@@ -616,52 +631,69 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
                 // then there is only one wall that can connect them on either side.
                 // if two rooms are diagonally adjacent, then there are two walls that can connect them
                 // on either side of the diagonal.
+                /// TODO: implement logic to connect diagonally adjacent rooms
                 firstWallPoint = getRandomPointOnWall(rooms[room1Index], wall1);
                 secondWallPoint = getRandomPointOnWall(rooms[room2Index], wall2);
-                printf("A random point along the east wall of room 7 is (%d, %d)\n", firstWallPoint->x, firstWallPoint->y);
-                printf("A random point along the west wall of room 8 is (%d, %d)\n", secondWallPoint->x, secondWallPoint->y);
+                wallsUsed[room1Index][wall1] = 1;
+                wallsUsed[room2Index][wall2] = 1;
+                // printf("A random point along the east wall of room %d is (%d, %d)\n", room1Quad, firstWallPoint->x, firstWallPoint->y);
+                // printf("A random point along the west wall of room %d is (%d, %d)\n", room2Quad, secondWallPoint->x, secondWallPoint->y);
                 clearNeighbors(neighbors);
-            }
 
-            // pathLetter = 'a'; // for testing
+                // pathLetter = 'a'; // for testing
 
-            int x = rooms[room1Index].xPos + rooms[room1Index].width / 2;
-            int y = rooms[room1Index].yPos + rooms[room1Index].height / 2;
-            int target_x = rooms[room2Index].xPos + rooms[room2Index].width / 2;
-            int target_y = rooms[room2Index].yPos + rooms[room2Index].height / 2;
+                int x = firstWallPoint->x;
+                int y = firstWallPoint->y;
+                int target_x = secondWallPoint->x;
+                int target_y = secondWallPoint->y;
 
-            // Perform random walk from the center of room1 to the center of room2
-            while (x != target_x || y != target_y) {
-                int moveInXDirection = (x != target_x) && ((y == target_y) || (rand() % 2));
-                int moveInYDirection = (y != target_y) && ((x == target_x) || (rand() % 2));
-
-                if (moveInXDirection) {
-                    int step_x = (x > target_x) ? -1 : 1;
-                    x += step_x;
-                }
-                else if (moveInYDirection) {
-                    int step_y = (y > target_y) ? -1 : 1;
-                    y += step_y;
+                if(x > target_x) {
+                    x--;
+                    target_x++;
+                } else if (x < target_x) {
+                    x++;
+                    target_x--;
                 }
 
-                matrix[y][x] = pathLetter; // Mark the corridor path
-                // for testing, use incremented letters instead of '#'
-                // pathLetter++;
-                // if(pathLetter > 'z') {
-                //     pathLetter = 'a';
-                // }
+                if(y > target_y) {
+                    y--;
+                    target_y++;
+                } else if (y < target_y) {
+                    y++;
+                    target_y--;
+                }
+
+                // Perform random walk from the center of room1 to the center of room2
+                while (x != target_x || y != target_y) {
+                    int moveInXDirection = (x != target_x) && ((y == target_y) || (rand() % 2));
+                    int moveInYDirection = (y != target_y) && ((x == target_x) || (rand() % 2));
+
+                    if (moveInXDirection) {
+                        int step_x = (x > target_x) ? -1 : 1;
+                        x += step_x;
+                    }
+                    else if (moveInYDirection) {
+                        int step_y = (y > target_y) ? -1 : 1;
+                        y += step_y;
+                    }
+
+                    matrix[y][x] = pathLetter; // Mark the corridor path
+                }
+
+                corridors[placed].xPos = x; // Store endpoint for simplicity
+                corridors[placed].yPos = y;
+                connections[room1Index][room2Index] = 1;
+                connections[room2Index][room1Index] = 1;
+                placed++;
+
+                // increment pathChar
+                pathLetter++;
             }
-
-            corridors[placed].xPos = x; // Store endpoint for simplicity
-            corridors[placed].yPos = y;
-            corridors[placed].width = 1; // Not used
-            corridors[placed].height = 1;
-            connections[room1Index][room2Index] = 1;
-            connections[room2Index][room1Index] = 1;
-            placed++;
-
         }
     }
+    // debugging
+    printWallsUsed();
+
     return corridors;
 }
 
@@ -904,7 +936,7 @@ int main()
 
     // redraw the rooms so that they appear "on top of" the corridors
     //// TODO: uncomment this line when not debugging
-    redrawAllRooms(matrix, rooms, dynamicRoomCount);
+    //// redrawAllRooms(matrix, rooms, dynamicRoomCount);
 
     /// TODO: reimplement doors after completing bendy corridors
     // place doors
@@ -931,7 +963,7 @@ int main()
     connectionsCount = countConnections(dynamicRoomCount, connections);
     // debugging message
     for (int i = 0; i < dynamicRoomCount; i++) {
-        printf("--- Room %d has %d connections\n", i, connectionsCount[i]);
+        printf("--- Room %d at quad %d has %d connections\n", i, rooms[i].wallChar - '0', connectionsCount[i]);
     }
 
     /// TODO: place treasure in the room farthest from the exit, unless it is the starting room,
