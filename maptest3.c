@@ -15,8 +15,7 @@ to connect the rooms randomly until all rooms are traversible.
 - The exit is represented by the character 'E'
 - The treasure is represented by the character 'T'
 - Currently, each room has an index from 0 to 8, and is represented internally by a number from 0 to 8
-- As far as rendering goes, room wall are rendered currently with the character '0' to '8' to represent
-  in which quandrant the room is located in, with 0 in the upper left corner and 8 in the lower right
+- The game currently supports a maximum of 9 rooms per level
 */
 
 /* Ideas:
