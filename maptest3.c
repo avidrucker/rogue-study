@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <math.h>
 
 /* DESCRIPTION OF STUDY
 
@@ -274,6 +273,10 @@ int roomExists(int quadIndex) {
     }
 }
 
+int intMax(int a, int b) {
+    return (a > b) ? a : b;
+}
+
 struct Rectangle *placeRooms(char matrix[][COLS]) {
     // srand(time(NULL)); // Seed the random number generator again?
 
@@ -317,8 +320,8 @@ struct Rectangle *placeRooms(char matrix[][COLS]) {
         // printf("width: %d, height: %d\n", width, height);
 
         // Ensure the room doesn't go out of its quadrant
-        int x = xStart + rand() % (int)fmax((thirdWidth - width - 2), 1);
-        int y = yStart + rand() % (int)fmax((thirdHeight - height - 2), 1);
+        int x = xStart + rand() % intMax((thirdWidth - width - 2), 1);
+        int y = yStart + rand() % intMax((thirdHeight - height - 2), 1);
 
         // printf("x: %d, y: %d\n", x, y);
 
