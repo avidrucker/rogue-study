@@ -26,6 +26,13 @@ to connect the rooms randomly until all rooms are traversible.
 - A bat enemy that moves and attacks randomly if the player is in the same room or corridor
 */
 
+// DONE: reimplement doors after completing bendy corridors
+// DONE: player player 1 at the topleft of the top left room
+// DONE: place treasure in a room with the least connections that isn't the starting nor ending room
+// DONE: place treasure in the room farthest from the exit, unless it is the starting room,
+//       in which case then place the treasure room randomly in a room that isn't the starting room
+//       nor the exit room
+// DONE: place the exit 'E' in the farthest room, in the middle of the room
 // DONE: make sure all rooms are traversable using the connections matrix
 // DONE: place the treasure in the farthest room from the exit that is not the starting room
 // DONE: feat conversion of room-corridor intersections to doors
@@ -1072,27 +1079,19 @@ int main()
     // printf("The farthest room from the top left room is room %c at room index %d which is at roomQuadrant %d\n",
     //  rooms[farthestRoomIndex].wallChar, farthestRoomIndex, rooms[farthestRoomIndex].wallChar - '0');
 
-    // redraw the rooms so that they appear "on top of" the corridors
-    //// TODO: uncomment this line when not debugging
-    // redrawAllRooms(matrix, rooms, dynamicRoomCount);
-
-    /// TODO: reimplement doors after completing bendy corridors
     // place doors
     placeDoors(matrix, MAX_ROOM_COUNT * 2);
 
     // mark top left room as "visible" by filling it with stars
-    //// TODO: uncomment this line when not debugging
+    // uncomment this line when not debugging
     // fillRectWithStars(matrix, rooms, indexOfTopLeftRoom, '*');
-
-    // DONE: player player 1 at the topleft of the top left room
+    
     // initially place player onto the board
-    //// TODO: place player 1 at a random spot in the top left room
     playerLocation.x = topLeftRoom.xPos+2;
     playerLocation.y = topLeftRoom.yPos+2;
     playerCell = matrix[playerLocation.y][playerLocation.x];
     matrix[playerLocation.y][playerLocation.x] = PLAYER_CHAR;
 
-    //// DONE: place the exit 'E' in the farthest room, at a random point in the room
     // place exit onto the board for now
     exitLocation = centerPointOfRectangle(rooms[farthestRoomIndex]);
     matrix[exitLocation.y][exitLocation.x] = EXIT_CHAR;
@@ -1104,9 +1103,6 @@ int main()
     //     printf("--- Room %d at quad %d has %d connections\n", i, rooms[i].wallChar - '0', connectionsCount[i]);
     // }
 
-    /// TODO: place treasure in the room farthest from the exit, unless it is the starting room,
-    ///       in which case then place the treasure room randomly in a room that isn't the starting room
-    ///       nor the exit room
     int farthestFromExit = farthestRoom(farthestRoomIndex, dynamicRoomCount, connections);
 
     if(farthestFromExit == indexOfTopLeftRoom) {
@@ -1118,13 +1114,9 @@ int main()
         treasureRoomIndex = farthestFromExit;
     }
 
-    // treasureRoomIndex = findFirstNonIgnoredOne(connectionsCount, dynamicRoomCount, indexOfTopLeftRoom, farthestRoomIndex);
-    // printf("The treasure room is room %c\n", rooms[treasureRoomIndex].wallChar);
     // place the treasure in the treasureRoom
     treasureLocation = randomPointInRectangle(rooms[treasureRoomIndex]);
     matrix[treasureLocation.y][treasureLocation.x] = TREASURE_CHAR;
-
-    //// TODO: place treasure in a room that has only one connection that isn't the starting nor ending room
 
     // main game loop
     while (1)
