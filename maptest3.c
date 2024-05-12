@@ -23,16 +23,19 @@ to connect the rooms randomly until all rooms are traversible.
 - A magic sensor that grows warmer or colder when the player is closer or farther from the treasure
 - Fog of war that reveals more of the map as the player moves into a room or corridor
 - Hidden/secret doors and room that are only revealed if the player moves into/enters them
+- A bat enemy that moves and attacks randomly if the player is in the same room or corridor
 */
 
 // DONE: make sure all rooms are traversable using the connections matrix
 // DONE: place the treasure in the farthest room from the exit that is not the starting room
-/// TODO: feat conversion of room-corridor intersections to doors
-/// TODO: feat walking through '#' corridors
-/// TODO: feat maximum of 1 door/corridor connection per wall
+// DONE: feat conversion of room-corridor intersections to doors
+// DONE: feat walking through '#' corridors
+// DONE: feat maximum of 1 door/corridor connection per wall
 // DONE: figure out which room is the "first room" and place player there
 // DONE: place the exit in the "last room" (the room farthest from the first room)
 // DONE: add a win condition when the player reaches the exit
+/// IDEA: save each corridor as its own array of points, this can be used to determine 
+//        if the player is in a corridor and if so which one
 /// IDEA: find a room that isn't the first nor last room that is has the next least room
 //       connections, and mark this as the secret room to put treasure in. If no
 //       such room exists, then swap the last room with 2nd to last room and make
@@ -41,6 +44,10 @@ to connect the rooms randomly until all rooms are traversible.
 //       room 4 is the last room. If there are two rooms or more that are only 
 //       connected to one other room, then randomly choose one of them to be the 
 //       secret room.
+/// IDEA: instead of creating a room/corridor localized FoW, instead create a FoW that clears
+//        as a quandrant is visited for the first time - this will require a new matrix to store
+//        the FoW state, and a print function that will print the FoW matrix instead of the
+//        "actual" game map matrix
 
 struct Rectangle
 {
@@ -66,38 +73,20 @@ int randSeed = 0; // NULL means random, 0 is constant
 int printNotQuit = 1; // when we quit, we don't reprint the board (1 means print the board, 0 means don't print the board)
 int quadrantsUsed[9] = {-1}; // To track used quadrants
 int wallsUsed[9][4] = {{0}}; // To track used walls between rooms
-// int neighbors[8] = {-1}; // To track the neighbors of a room
-int neighborsSimple[8] = {-1}; // To track the neighbors of a room
-struct Point* firstWallPoint; // To track the start of a corridor
-struct Point* secondWallPoint; // To track the end of a corridor
+int neighborsSimple[9] = {-1}; // To track the neighbors of a room
+struct Point* firstWallPoint; // To track the start of a corridor when building it
+struct Point* secondWallPoint; // To track the end of a corridor when building it
 
-void clearNeighbors(int neighbors[]) {
-    for (int i = 0; i < 8; i++) {
-        neighbors[i] = -1;
-    }
-}
-
+/**
+ * Clears the values of the neighbors array.
+ *
+ * @param neighbors An array of integers representing the neighbors of a room.
+ */
 void clearNeighborsSimple(int neighbors[]) {
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
         neighbors[i] = -1;
     }
 }
-
-// debugging function
-void printQuadrantsUsed (int quadsUsed[9]) {
-    for (int i = 0; i < 9; i++) {
-        printf("Quadrant %d: %d\n", i, quadsUsed[i]);
-    }
-}
-
-////
-// debugging function
-void printWallsUsed (struct Rectangle *rooms, int numRooms) {
-    for (int i = 0; i < numRooms; i++) {
-        printf("Room %d at quad %d walls: %d, %d, %d, %d\n", i, rooms[i].wallChar-'0', wallsUsed[i][0], wallsUsed[i][1], wallsUsed[i][2], wallsUsed[i][3]);
-    }
-}
-
 
 /**
  * Fills a matrix with a specified character.
@@ -119,18 +108,6 @@ void fillMatrix(char matrix[][COLS], int rows, int cols, char input)
         for (j = 0; j < cols; j++)
         {
             matrix[i][j] = input;
-        }
-    }
-}
-
-void fillQuadrant(char matrix[][COLS], int quadIndex, char fillChar) {
-    int thirdWidth = COLS / 3;
-    int thirdHeight = ROWS / 3;
-    int xStart = quadIndex % 3 * thirdWidth;
-    int yStart = quadIndex / 3 * thirdHeight;
-    for (int i = yStart; i < yStart + thirdHeight; i++) {
-        for (int j = xStart; j < xStart + thirdWidth; j++) {
-            matrix[i][j] = fillChar;
         }
     }
 }
@@ -954,6 +931,9 @@ int main()
 
         // place rooms
         rooms = placeRooms(matrix);
+
+        // debugging
+        printMatrix(matrix, ROWS, COLS);
 
         dynamicRoomCount = countRooms(quadrantsUsed);
 
