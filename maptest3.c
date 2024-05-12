@@ -69,7 +69,7 @@ int MAX_ROOM_COUNT = 9;
 char PLAYER_CHAR = '@';
 char EXIT_CHAR = 'E';
 char TREASURE_CHAR = 'T';
-int randSeed = 0; // NULL means random, 0 is constant
+int randSeed = 6; // NULL means random, 0 is constant
 int printNotQuit = 1; // when we quit, we don't reprint the board (1 means print the board, 0 means don't print the board)
 int quadrantsUsed[9] = {-1}; // To track used quadrants
 int wallsUsed[9][4] = {{0}}; // To track used walls between rooms
@@ -187,6 +187,7 @@ struct Point destinationPoint(struct Point playerPos, char direction)
     return destination;
 }
 
+/// TODO: use pointInRect to determine if the player is in a room
 /**
  * Checks if a point is within a rectangle.
  *
@@ -254,18 +255,94 @@ int intMax(int a, int b) {
     return (a > b) ? a : b;
 }
 
+
+/// TODO: move array declaration to top of file
+// Directions for cardinally adjacent cells in a flat array representation
+int directionShifts[] = {-3, 3, -1, 1}; // Up, Down, Left, Right
+
+int isValidQuad(int pos, int direction, int size) {
+    // Check bounds and special cases for left and right wrap-arounds
+    if (pos + direction < 0 || pos + direction >= size)
+        return 0;
+    if ((direction == -1 && pos % 3 == 0) || (direction == 1 && (pos + 1) % 3 == 0))
+        return 0;
+    return 1;
+}
+
+/// TODO: determine whether MATRIX_SIZE needs to be a param, dynamic, both, or neither
+void bfs(int quads1dMatrix[], int visited[], int start) {
+    int queue[9]; // MATRIX_SIZE
+    int front = 0, rear = 0;
+
+    // Enqueue the starting index
+    queue[rear++] = start;
+    visited[start] = 1;
+
+    while (front < rear) {
+        int current = queue[front++];
+
+        for (int i = 0; i < 4; i++) {
+            int newPos = current + directionShifts[i];
+            
+            // MATRIX_SIZE
+            if (isValidQuad(current, directionShifts[i], 9) && quads1dMatrix[newPos] != -1 && !visited[newPos]) {
+                visited[newPos] = 1;
+                queue[rear++] = newPos; // Enqueue the position
+            }
+        }
+    }
+}
+
+int isCardinallyAdjacent(int quads1dMatrix[]) {
+
+    // debug 6
+    // print the quads1dMatrix
+    // printf("The quads1dMatrix is:\n");
+    // for (int i = 0; i < 9; i++) {
+    //     printf("%d ", quads1dMatrix[i]);
+    //     if((i+1) % 3 == 0) {
+    //         printf("\n");
+    //     }
+    // }
+    // printf("\n");
+
+    int visited[9] = {0}; // MATRIX_SIZE
+    int start = -1;
+
+    // Find the first room
+    for (int i = 0; i < 9; i++) {
+        if (quads1dMatrix[i] != -1) {
+            start = i;
+            break;
+        }
+    }
+
+    if (start == -1) {
+        printf("Error: no rooms found\n");
+        return 0;
+    }
+
+    bfs(quads1dMatrix, visited, start);
+
+    // Check if all rooms were visited
+    for (int i = 0; i < 9; i++) {
+        if (quads1dMatrix[i] != -1 && !visited[i]) {
+            // printf("Not all rooms are cardinally adjacent\n");
+            return 0; // Not cardinally adjacent
+        }
+    }
+
+    // printf("All rooms are cardinally adjacent\n");
+
+    return 1; // Cardinally adjacent
+}
+
 struct Rectangle *placeRooms(char matrix[][COLS]) {
     // srand(time(NULL)); // Seed the random number generator again?
 
     int numRooms = rand() % 5 + 5; // Random number of rooms between 5 and 9
     struct Rectangle *rooms = malloc(numRooms * sizeof(struct Rectangle));
-    int placed = 0;
-    int quadChar = '0';
-
-    for (int i = 0; i < 9; i++) {
-        quadrantsUsed[i] = -1; // reset used quadrants
-    }
-
+    
     // debugging
     // printf("Initial quandrants used:\n");
     // printQuadrantsUsed(quadrantsUsed);
@@ -274,42 +351,70 @@ struct Rectangle *placeRooms(char matrix[][COLS]) {
     //     printf("%d\n", roomExists(i));
     // }
 
-    while (placed < numRooms) {
-        int quadrant = rand() % 9;
-        while (quadrantsUsed[quadrant] != -1) { // Find an unused quadrant
-            quadrant = (quadrant + 1) % 9;
+    int placing = 1;
+
+    while(placing) {
+
+        int placed = 0;
+        int quadChar = '0';
+
+        for (int i = 0; i < 9; i++) {
+            quadrantsUsed[i] = -1; // reset used quadrants
         }
 
-        int thirdWidth = COLS / 3;
-        int thirdHeight = ROWS / 3;
+        while (placed < numRooms) {
+            int quadrant = rand() % 9;
+            while (quadrantsUsed[quadrant] != -1) { // Find an unused quadrant
+                quadrant = (quadrant + 1) % 9;
+            }
 
-        int xStart = quadrant % 3 * thirdWidth + 1; // Calculate quadrant position
-        int yStart = quadrant / 3 * thirdHeight + 1;
+            int thirdWidth = COLS / 3;
+            int thirdHeight = ROWS / 3;
 
-        int maxWidth = thirdWidth - 2; // 2 tiles less than a third of the map's dimensions
-        int maxHeight = thirdHeight - 2;
+            int xStart = quadrant % 3 * thirdWidth + 1; // Calculate quadrant position
+            int yStart = quadrant / 3 * thirdHeight + 1;
 
-        // printf("maxWidth: %d, maxHeight: %d\n", maxWidth, maxHeight);
+            int maxWidth = thirdWidth - 2; // 2 tiles less than a third of the map's dimensions
+            int maxHeight = thirdHeight - 2;
 
-        int width = rand() % (maxWidth - 5 + 1) + 5; // Room size between 5x5 and maxWidth x maxHeight
-        int height = rand() % (maxHeight - 5 + 1) + 5;
+            // printf("maxWidth: %d, maxHeight: %d\n", maxWidth, maxHeight);
 
-        // printf("width: %d, height: %d\n", width, height);
+            int width = rand() % (maxWidth - 5 + 1) + 5; // Room size between 5x5 and maxWidth x maxHeight
+            int height = rand() % (maxHeight - 5 + 1) + 5;
 
-        // Ensure the room doesn't go out of its quadrant
-        int x = xStart + rand() % intMax((thirdWidth - width - 2), 1);
-        int y = yStart + rand() % intMax((thirdHeight - height - 2), 1);
+            // printf("width: %d, height: %d\n", width, height);
 
-        // printf("x: %d, y: %d\n", x, y);
+            // Ensure the room doesn't go out of its quadrant
+            int x = xStart + rand() % intMax((thirdWidth - width - 2), 1);
+            int y = yStart + rand() % intMax((thirdHeight - height - 2), 1);
 
-        quadChar = '0' + quadrant;
+            // printf("x: %d, y: %d\n", x, y);
 
-        // printf("Placing room %d in quadrant %d at (%d, %d) with size %dx%d\n", placed, quadrant, x, y, width, height);
-        struct Rectangle c = {x, y, width, height, quadChar};
-        placeRoom(matrix, x, y, width, height, quadChar); // Place room on map
-        rooms[placed] = c;
-        quadrantsUsed[quadrant] = placed; // Mark this quadrant as used
-        placed++;
+            quadChar = '0' + quadrant;
+
+            // printf("Placing room %d in quadrant %d at (%d, %d) with size %dx%d\n", placed, quadrant, x, y, width, height);
+            struct Rectangle c = {x, y, width, height, quadChar};
+            placeRoom(matrix, x, y, width, height, quadChar); // Place room on map
+            rooms[placed] = c;
+            quadrantsUsed[quadrant] = placed; // Mark this quadrant as used
+            placed++;
+        }
+
+
+        if(isCardinallyAdjacent(quadrantsUsed)) {
+            // printf("2. Rooms are cardinally adjacent, breaking the placing loop...\n");
+            placing = 0;
+        } else {
+
+            // debugging
+            // printMatrix(matrix, ROWS, COLS);
+            fillMatrix(matrix, ROWS, COLS, ' '); // Clear the matrix of the previously drawn rooms
+            // printf("2. Rooms are not cardinally adjacent, trying again...\n");
+            // increment random seed to get different room placements
+            randSeed++;
+            // printf("New random seed: %d\n", randSeed);
+            srand(randSeed);
+        }
     }
     
     // debugging
@@ -349,7 +454,8 @@ struct Rectangle findTopLeftRoom(struct Rectangle *rooms, int numRooms) {
         }
     }
 
-    printf("The top left room is at (%d, %d)\n", topLeftRoom.xPos, topLeftRoom.yPos);
+    // debug 8
+    // printf("The top left room is at (%d, %d)\n", topLeftRoom.xPos, topLeftRoom.yPos);
 
     return topLeftRoom;
 }
@@ -492,7 +598,8 @@ int getFacingWallDirectionSimple(int room1Index, int room2Index) {
     }
     for(int i = 0; i < 8; i++) {
         if(neighborsSimple[i] == room2Index) {
-            printf(">>> The wall of room %d that connects to room %d is on the %s\n", room1Index, room2Index, directionsSimple[i]);
+            // debug 2
+            // printf(">>> The wall of room %d that connects to room %d is on the %s\n", room1Index, room2Index, directionsSimple[i]);
             direction = i;
         }
     }
@@ -548,11 +655,11 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
     int placed = 0;
     char pathLetter = '#'; // 'a' or '1' for testing / '#'
 
-    // debugging
-    printf("=========\n");
-    printf("before connecting the corridors the connections are:\n");
-    printConnections(numRooms, connections);
-    printf("=========\n");
+    // debugging 6
+    // printf("=========\n");
+    // printf("before connecting the corridors the connections are:\n");
+    // printConnections(numRooms, connections);
+    // printf("=========\n");
 
     while (!isFullyTransitive(numRooms, connections)) {
 
@@ -588,16 +695,16 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         // we can place a corridor between them
         if (!connections[room1Index][room2Index] && areAdjacentSimple(room1Quad, room2Quad) != -1) {
 
-            printf("Attempting to place a corridor between rooms %d and %d in quads %d and %d\n", room1Index, room2Index, room1Quad, room2Quad);   
+            // debug 1
+            // printf("Attempting to place a corridor between rooms %d and %d in quads %d and %d\n", room1Index, room2Index, room1Quad, room2Quad);   
             calculateNeighborsSimple(room1Quad);
             int wall1 = getFacingWallDirectionSimple(room1Quad, room2Quad);
             clearNeighborsSimple(neighborsSimple);
 
             calculateNeighborsSimple(room2Quad);
             int wall2 = getFacingWallDirectionSimple(room2Quad, room1Quad);
-            printf("The wall directions are %d and %d to connect quads %d and %d\n", wall1, wall2, room1Quad, room2Quad);
-
-            /// TODO: print out which walls are being used here
+            // debug 3
+            // printf("The wall directions are %d and %d to connect quads %d and %d\n", wall1, wall2, room1Quad, room2Quad);
 
             if(wallsUsed[room1Index][wall1] || wallsUsed[room2Index][wall2]) {
                 // printf("Error: wall %d of quad %d OR wall %d of quad %d are already used\n", wall1, room1Quad, wall2, room2Quad);
@@ -607,8 +714,6 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
                 secondWallPoint = getRandomPointOnWall(rooms[room2Index], wall2);
                 wallsUsed[room1Index][wall1] = 1;
                 wallsUsed[room2Index][wall2] = 1;
-                // printf("A random point along the east wall of room %d is (%d, %d)\n", room1Quad, firstWallPoint->x, firstWallPoint->y);
-                // printf("A random point along the west wall of room %d is (%d, %d)\n", room2Quad, secondWallPoint->x, secondWallPoint->y);
                 clearNeighborsSimple(neighborsSimple);
 
                 // pathLetter = 'a'; // for testing
@@ -618,12 +723,9 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
                 int target_x = secondWallPoint->x;
                 int target_y = secondWallPoint->y;
 
-                // if(pathLetter == '4') {
-                //     printf("!!!\n");
-                //     printf("Storing the startpoint of the corridor at (%d, %d)\n", x, y);
-                // }
-                printf("... marking from point (%d, %d) to point (%d, %d) for path number %c\n", x, y, target_x, target_y, pathLetter);
-                printf("\n");
+                // debug 4
+                // printf("... marking from point (%d, %d) to point (%d, %d) for path number %c\n", x, y, target_x, target_y, pathLetter);
+                // printf("\n");
 
                 int stepCounter = 0;
                 // int totalSteps = abs(target_x - x) + abs(target_y - y);
@@ -692,21 +794,6 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
     // printf("=========\n");
 
     return corridors;
-}
-
-
-int isLetter(char c) {
-    if (c >= 'a' && c <= 'z') {
-        return 1;
-    }
-    return 0;
-}
-
-int isPeriod(char c) {
-    if (c == '.') {
-        return 1;
-    }
-    return 0;
 }
 
 int isQuestionMark(char c) {
@@ -840,7 +927,8 @@ int* countConnections(int numRooms, int connections[][numRooms]) {
  * @return The value of the first non-ignored element, or -1 if all elements are ignored.
  */
 int findFirstNonIgnoredOne(int* arr, int length, int ignoreIndex1, int ignoreIndex2) {
-    printf("Looking for a room that is neither index %d nor index %d...\n", ignoreIndex1, ignoreIndex2);
+    // debug 10
+    // printf("Looking for a room that is neither index %d nor index %d...\n", ignoreIndex1, ignoreIndex2);
     for (int i = 0; i < length; i++) {
         if (i == ignoreIndex1 || i == ignoreIndex2) {
             continue;
@@ -854,7 +942,8 @@ int findFirstNonIgnoredOne(int* arr, int length, int ignoreIndex1, int ignoreInd
 }
 
 int findMinConnectedRoomOfNonIgnoredRooms(int* arr, int length, int ignoreIndex1, int ignoreIndex2) {
-    printf("Looking for a room that is neither index %d nor index %d...\n", ignoreIndex1, ignoreIndex2);
+    // debug 11
+    // printf("Looking for a room that is neither index %d nor index %d...\n", ignoreIndex1, ignoreIndex2);
     int minConnections = 1000;
     int minIndex = -1;
     for (int i = 0; i < length; i++) {
@@ -890,6 +979,8 @@ int countRooms(int quadsUsed[9]) {
 
 int main()
 {
+    printf("Welcome to Rogue Study!\n");
+
     // change back when in prod 
     srand(randSeed);
     // srand(time(NULL));
@@ -924,20 +1015,16 @@ int main()
         // clear the board
         fillMatrix(matrix, ROWS, COLS, ' ');
 
-        // for testing, fill the board with symbols to make the quadrants visible
-        // for (int i = 0; i < 9; i += 2) {
-        //     fillQuadrant(matrix, i, '%');
-        // }
-
         // place rooms
         rooms = placeRooms(matrix);
 
         // debugging
-        printMatrix(matrix, ROWS, COLS);
+        // printMatrix(matrix, ROWS, COLS);
 
         dynamicRoomCount = countRooms(quadrantsUsed);
 
-        printf("There are %d rooms\n", dynamicRoomCount);
+        // debug 7
+        // printf("There are %d rooms\n", dynamicRoomCount);
 
         // find the top left room
         topLeftRoom = findTopLeftRoom(rooms, dynamicRoomCount);
@@ -945,8 +1032,9 @@ int main()
         // get the topLeftRoom index
         indexOfTopLeftRoom = getRoomIndexFromRect(topLeftRoom, rooms, dynamicRoomCount);
 
-        printf("The upper left most room is room %c at room index %d which is at roomQuadrant %d\n",
-         rooms[indexOfTopLeftRoom].wallChar, indexOfTopLeftRoom, rooms[indexOfTopLeftRoom].wallChar - '0');
+        // debug 9
+        // printf("The upper left most room is room %c at room index %d which is at roomQuadrant %d\n",
+        //  rooms[indexOfTopLeftRoom].wallChar, indexOfTopLeftRoom, rooms[indexOfTopLeftRoom].wallChar - '0');
 
         // print the details of the top left room (debugging message)
         // printRoomDetails(matrix, rooms, indexOfTopLeftRoom);
