@@ -69,7 +69,7 @@ int MAX_ROOM_COUNT = 9;
 char PLAYER_CHAR = '@';
 char EXIT_CHAR = 'E';
 char TREASURE_CHAR = 'T';
-int randSeed = 6; // NULL means random, 0 is constant
+int randSeed = 0; // NULL means random, 0 is constant
 int printNotQuit = 1; // when we quit, we don't reprint the board (1 means print the board, 0 means don't print the board)
 int quadrantsUsed[9] = {-1}; // To track used quadrants
 int wallsUsed[9][4] = {{0}}; // To track used walls between rooms
@@ -706,7 +706,7 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
             // debug 3
             // printf("The wall directions are %d and %d to connect quads %d and %d\n", wall1, wall2, room1Quad, room2Quad);
 
-            if(wallsUsed[room1Index][wall1] || wallsUsed[room2Index][wall2]) {
+            if(wall1 > 3 || wall2 > 3 || wallsUsed[room1Index][wall1] || wallsUsed[room2Index][wall2]) {
                 // printf("Error: wall %d of quad %d OR wall %d of quad %d are already used\n", wall1, room1Quad, wall2, room2Quad);
                 continue;
             } else {
@@ -982,8 +982,8 @@ int main()
     printf("Welcome to Rogue Study!\n");
 
     // change back when in prod 
-    srand(randSeed);
-    // srand(time(NULL));
+    // srand(randSeed);
+    srand(time(NULL));
     char matrix[ROWS][COLS]; // the board
     char input; // character move input: 'wasd' or 'q'
     // initialize display message that gives player info regarding out of bounds, etc.
