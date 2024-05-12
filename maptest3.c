@@ -69,11 +69,12 @@ int MAX_ROOM_COUNT = 9;
 char PLAYER_CHAR = '@';
 char EXIT_CHAR = 'E';
 char TREASURE_CHAR = 'T';
-int randSeed = 0; // NULL means random, 0 is constant
+int fixedSeed = 1715544555; // NULL means random, 0 is constant
 int printNotQuit = 1; // when we quit, we don't reprint the board (1 means print the board, 0 means don't print the board)
 int quadrantsUsed[9] = {-1}; // To track used quadrants
 int wallsUsed[9][4] = {{0}}; // To track used walls between rooms
 int neighborsSimple[9] = {-1}; // To track the neighbors of a room
+int numRooms; // Number of rooms to generate
 struct Point* firstWallPoint; // To track the start of a corridor when building it
 struct Point* secondWallPoint; // To track the end of a corridor when building it
 
@@ -338,9 +339,7 @@ int isCardinallyAdjacent(int quads1dMatrix[]) {
 }
 
 struct Rectangle *placeRooms(char matrix[][COLS]) {
-    // srand(time(NULL)); // Seed the random number generator again?
-
-    int numRooms = rand() % 5 + 5; // Random number of rooms between 5 and 9
+    
     struct Rectangle *rooms = malloc(numRooms * sizeof(struct Rectangle));
     
     // debugging
@@ -411,9 +410,9 @@ struct Rectangle *placeRooms(char matrix[][COLS]) {
             fillMatrix(matrix, ROWS, COLS, ' '); // Clear the matrix of the previously drawn rooms
             // printf("2. Rooms are not cardinally adjacent, trying again...\n");
             // increment random seed to get different room placements
-            randSeed++;
+            fixedSeed++;
             // printf("New random seed: %d\n", randSeed);
-            srand(randSeed);
+            srand(fixedSeed);
         }
     }
     
@@ -655,10 +654,17 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
     int placed = 0;
     char pathLetter = '#'; // 'a' or '1' for testing / '#'
 
+    // initialize connections to all 0's to indicate there are no room connections yet
+        for (int i = 0; i < numRooms; i++) {
+            for (int j = 0; j < numRooms; j++) {
+                connections[i][j] = 0;
+            }
+        }
+
     // debugging 6
     // printf("=========\n");
     // printf("before connecting the corridors the connections are:\n");
-    // printConnections(numRooms, connections);
+    // printConnections(numRooms, connections); // MAX_ROOM_COUNT
     // printf("=========\n");
 
     while (!isFullyTransitive(numRooms, connections)) {
@@ -668,6 +674,8 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         int room2Index = (room1Index + 1 + rand() % (numRooms - 1)) % numRooms;
         int room1Quad = rooms[room1Index].wallChar - '0';
         int room2Quad = rooms[room2Index].wallChar - '0';
+
+        // printf("Attempting to connect quads %d and %d\n", room1Quad, room2Quad);
 
         /// TODO: rewrite this logic so that it is more readable
         // check to make sure that the rooms are in valid quadrants
@@ -706,6 +714,7 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
             // debug 3
             // printf("The wall directions are %d and %d to connect quads %d and %d\n", wall1, wall2, room1Quad, room2Quad);
 
+            // this prevents making a connection when wall directions are invalid or the walls have already been used
             if(wall1 > 3 || wall2 > 3 || wallsUsed[room1Index][wall1] || wallsUsed[room2Index][wall2]) {
                 // printf("Error: wall %d of quad %d OR wall %d of quad %d are already used\n", wall1, room1Quad, wall2, room2Quad);
                 continue;
@@ -790,7 +799,7 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
     // debugging
     // printf("=========\n");
     // printf("after connecting the corridors the connections are:\n");
-    // printConnections(numRooms, connections);
+    // printConnections(numRooms, connections); // numRooms
     // printf("=========\n");
 
     return corridors;
@@ -900,6 +909,13 @@ struct Point randomPointInRectangle(struct Rectangle rect) {
     return point;
 }
 
+struct Point centerPointOfRectangle(struct Rectangle rect) {
+    struct Point point;
+    point.x = rect.xPos + rect.width / 2;
+    point.y = rect.yPos + rect.height / 2;
+    return point;
+}
+
 
 // returns an array of ints where each index i is the 
 // number of connections room i has
@@ -982,8 +998,11 @@ int main()
     printf("Welcome to Rogue Study!\n");
 
     // change back when in prod 
-    // srand(randSeed);
-    srand(time(NULL));
+    srand(fixedSeed);
+    // int seed = time(NULL);
+    // srand(seed);
+    printf("Fixed seed: %d\n", fixedSeed);
+    // printf("Random seed: %d\n", seed);
     char matrix[ROWS][COLS]; // the board
     char input; // character move input: 'wasd' or 'q'
     // initialize display message that gives player info regarding out of bounds, etc.
@@ -1004,11 +1023,12 @@ int main()
     struct Rectangle topLeftRoom;
     int indexOfTopLeftRoom;
     int treasureRoomIndex;
-    int connections[MAX_ROOM_COUNT][MAX_ROOM_COUNT]; // an adjacency matrix to store connections between rooms
     struct Rectangle *corridors; // the collection of hallways connecting the rooms
     int* connectionsCount; // an array of ints where each index i is the number of connections room i has
     int roomEpochs = 0;
     int dynamicRoomCount = 0;
+    numRooms = rand() % 5 + 5; // Random number of rooms between 5 and 9
+    int connections[numRooms][numRooms]; // an adjacency matrix to store connections between rooms
 
     // setup loop to generate a level
     while(1) {
@@ -1017,6 +1037,7 @@ int main()
 
         // place rooms
         rooms = placeRooms(matrix);
+
 
         // debugging
         // printMatrix(matrix, ROWS, COLS);
@@ -1038,13 +1059,6 @@ int main()
 
         // print the details of the top left room (debugging message)
         // printRoomDetails(matrix, rooms, indexOfTopLeftRoom);
-
-        // initialize connections to all 0's to indicate there are no room connections yet
-        for (int i = 0; i < MAX_ROOM_COUNT; i++) {
-            for (int j = 0; j < MAX_ROOM_COUNT; j++) {
-                connections[i][j] = 0;
-            }
-        }
 
         // place corridors
         corridors = placeCorridors(matrix, rooms, dynamicRoomCount, connections);
@@ -1080,7 +1094,7 @@ int main()
 
     //// DONE: place the exit 'E' in the farthest room, at a random point in the room
     // place exit onto the board for now
-    exitLocation = randomPointInRectangle(rooms[farthestRoomIndex]);
+    exitLocation = centerPointOfRectangle(rooms[farthestRoomIndex]);
     matrix[exitLocation.y][exitLocation.x] = EXIT_CHAR;
 
     // count the number of connections each room has
