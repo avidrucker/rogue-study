@@ -2,6 +2,8 @@
 
 This repository is an homage to the 1980 game Rogue. The purpose of this C program is to practice making simple text games, and to ultimately port to LCC Assembly.
 
+![A screenshot of Rogue Study](rogue_study.png)
+
 ## About the Game
 
 The game is a simple text-based dungeon crawler. The player moves around a grid, navigating through rooms and corridors, and interacting with doors. The game is currently in a basic state, but serves as a foundation for more complex features and mechanics.
@@ -10,18 +12,30 @@ The game is a simple text-based dungeon crawler. The player moves around a grid,
 
 To build the game, you need to have GCC installed on your machine. Once installed, you can compile the game using the following command:
 
+For Linux/Mac:
 ```bash
-gcc ./maptest1.c -o ./maptest1
+gcc ./maptest3.c -o ./maptest3
 ```
 
-This will create an executable named `maptest1` in your current directory.
+For Windows:
+```
+gcc .\maptest3.c -o .\maptest3
+```
+
+This will create an executable named `maptest3` in your current directory and then immediately run it.
 
 ## Running the Game
 
 After building the game, you can run it using the following command:
 
+For Linux/Mac:
 ```bash
-./maptest1
+./maptest3
+```
+
+Or on Windows:
+```
+.\maptest3.exe
 ```
 
 ## Future Plans
