@@ -165,15 +165,15 @@ void printMatrix(char matrix[][COLS], int rows, int cols)
  * Checks if a point is a door or floor tile.
  *
  * This function takes a 2D character matrix and a point, and checks if the character at the
- * specified point is a door or floor tile.
+ * specified point is a door, floor, or corridor tile.
  *
  * @param matrix The 2D character matrix to check.
  * @param point The point to check.
- * @return 1 if the character at the point is a door or floor tile, 0 otherwise.
+ * @return 1 if the character at the point is a door, floor, or corridor tile, 0 otherwise.
  */
-int pointIsDoorOrFloor(char matrix[][COLS], struct Point point) {
+int pointIsDoorFloorOrCorridor(char matrix[][COLS], struct Point point) {
     if (matrix[point.y][point.x] == '%' || matrix[point.y][point.x] == '.' || 
-            matrix[point.y][point.x] == '*') {
+            matrix[point.y][point.x] == '#') {
         return 1;
     }
     return 0;
@@ -1056,7 +1056,7 @@ int main()
         }
         else // not quitting
         {
-            if (pointIsDoorOrFloor(matrix, destinationPoint(playerLocation, input))) {            
+            if (pointIsDoorFloorOrCorridor(matrix, destinationPoint(playerLocation, input))) {            
                 // Before updating the player's position, restore the previous cell
                 matrix[playerLocation.y][playerLocation.x] = playerCell;
                 // clear the message
@@ -1083,7 +1083,7 @@ int main()
                 playerCell = '.'; // store blank cell tile to update after player moves away from where the treasure was
                 matrix[playerLocation.y][playerLocation.x] = PLAYER_CHAR; // place player
             } else {
-                if(!pointIsDoorOrFloor(matrix, destinationPoint(playerLocation, input))) {
+                if(!pointIsDoorFloorOrCorridor(matrix, destinationPoint(playerLocation, input))) {
                     strcpy(message, "Invalid move");
                 } else {
                     strcpy(message, "Unknown error, code 001");
