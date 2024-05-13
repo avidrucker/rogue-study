@@ -79,7 +79,7 @@ int MAX_ROOM_COUNT = 9;
 char PLAYER_CHAR = '@';
 char EXIT_CHAR = 'E';
 char TREASURE_CHAR = 'T';
-int fixedSeed = 0; // NULL means random, 0 is constant // fav seeds: 1715544555, 0, 19
+int fixedSeed = 0; // NULL means random, 0 is constant // fav seeds: 1715544555, 0, 19, 1715568562
 int randomSeed;
 int printNotQuit = 1; // when we quit, we don't reprint the board (1 means print the board, 0 means don't print the board)
 int quadrantsUsed[9] = {-1}; // To track used quadrants
