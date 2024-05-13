@@ -24,7 +24,8 @@ to connect the rooms randomly until all rooms are traversible.
 - Hidden/secret doors and room that are only revealed if the player moves into/enters them
 - A bat enemy that moves and attacks randomly if the player is in the same room or corridor
 */
-
+// DONE: fix bug where the exit is sometimes placed in the upper left room (see seed 24 or 30 for examples)
+// DONE: fix bug where the exit is sometimes placed not in the farthest room away from the player (seed seed 28 for example)
 // DONE: place exit at bottom right of farthest room from starting room
 // DONE: implement valid random placement of corridor connections (doors) along walls
 // DONE: reimplement doors after completing bendy corridors
@@ -32,7 +33,7 @@ to connect the rooms randomly until all rooms are traversible.
 // DONE: place treasure in a room with the least connections that isn't the starting nor ending room
 // DONE: place treasure in the room farthest from the exit, unless it is the starting room,
 //       in which case then place the treasure room randomly in a room that isn't the starting room
-//       nor the exit room
+//       nor the exit room, see room seed 23 for an example of this
 // DONE: place the exit 'E' in the farthest room, in the middle of the room
 // DONE: make sure all rooms are traversable using the connections matrix
 // DONE: place the treasure in the farthest room from the exit that is not the starting room
@@ -77,7 +78,7 @@ int MAX_ROOM_COUNT = 9;
 char PLAYER_CHAR = '@';
 char EXIT_CHAR = 'E';
 char TREASURE_CHAR = 'T';
-int fixedSeed = 0; // NULL means random, 0 is constant // fav seeds: 1715544555
+int fixedSeed = 23; // NULL means random, 0 is constant // fav seeds: 1715544555, 0, 19
 int printNotQuit = 1; // when we quit, we don't reprint the board (1 means print the board, 0 means don't print the board)
 int quadrantsUsed[9] = {-1}; // To track used quadrants
 int wallsUsed[9][4] = {{0}}; // To track used walls between rooms
@@ -87,6 +88,7 @@ int numRooms; // Number of rooms to generate
 int directionShifts[] = {-3, 3, -1, 1}; // Up, Down, Left, Right
 struct Point* firstWallPoint; // To track the start of a corridor when building it
 struct Point* secondWallPoint; // To track the end of a corridor when building it
+int epochs = 0; // To track the number of epochs it takes to generate a valid map
 
 /**
  * Clears the values of the neighbors array.
@@ -356,6 +358,17 @@ int isCardinallyAdjacent(int quads1dMatrix[]) {
     return 1; // Cardinally adjacent
 }
 
+struct Rectangle *clearRooms(struct Rectangle *rooms, int numRooms) {
+    for (int i = 0; i < numRooms; i++) {
+        rooms[i].xPos = -1;
+        rooms[i].yPos = -1;
+        rooms[i].width = -1;
+        rooms[i].height = -1;
+        rooms[i].wallChar = -1;
+    }
+    return rooms;
+}
+
 struct Rectangle *placeRooms(char matrix[][COLS]) {
     
     struct Rectangle *rooms = malloc(numRooms * sizeof(struct Rectangle));
@@ -369,7 +382,7 @@ struct Rectangle *placeRooms(char matrix[][COLS]) {
     // }
 
     int placing = 1;
-
+    
     while(placing) {
 
         int placed = 0;
@@ -426,11 +439,13 @@ struct Rectangle *placeRooms(char matrix[][COLS]) {
             // debugging
             // printMatrix(matrix, ROWS, COLS);
             fillMatrix(matrix, ROWS, COLS, ' '); // Clear the matrix of the previously drawn rooms
+            epochs++;
             // printf("2. Rooms are not cardinally adjacent, trying again...\n");
             // increment random seed to get different room placements
             fixedSeed++;
             // printf("New random seed: %d\n", randSeed);
             srand(fixedSeed);
+            rooms = clearRooms(rooms, numRooms);
         }
     }
     
@@ -491,8 +506,13 @@ struct Rectangle findTopLeftRoom(struct Rectangle *rooms, int numRooms) {
  * @param numRooms The number of rooms in the array.
  * @return The index of the intersecting room, or -1 if no intersection is found.
  */
-int getRoomIndexFromRect(struct Rectangle rect) {
-    return rect.wallChar - '0';
+int getRoomIndexFromRect(struct Rectangle rect, struct Rectangle *rooms, int numRooms) {
+    for (int i = 0; i < numRooms; i++) {
+        if (rooms[i].xPos == rect.xPos && rooms[i].yPos == rect.yPos) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 
@@ -1084,7 +1104,6 @@ int main()
     int treasureRoomIndex;
     struct Rectangle *corridors; // the collection of hallways connecting the rooms
     int* connectionsCount; // an array of ints where each index i is the number of connections room i has
-    int roomEpochs = 0;
     int dynamicRoomCount = 0;
     numRooms = rand() % 5 + 5; // Random number of rooms between 5 and 9
     int connections[numRooms][numRooms]; // an adjacency matrix to store connections between rooms
@@ -1110,7 +1129,7 @@ int main()
         topLeftRoom = findTopLeftRoom(rooms, dynamicRoomCount);
 
         // get the topLeftRoom index
-        indexOfTopLeftRoom = getRoomIndexFromRect(topLeftRoom);
+        indexOfTopLeftRoom = getRoomIndexFromRect(topLeftRoom, rooms, dynamicRoomCount);
 
         // debug 9
         // printf("The upper left most room is room %c at room index %d which is at roomQuadrant %d\n",
@@ -1126,10 +1145,12 @@ int main()
         break;
     }
 
+    printf("Room gen epoch: %d\n", epochs);
+
     // denote the farthest room from the player's initial starting room
     int farthestRoomIndex = farthestRoom(indexOfTopLeftRoom, dynamicRoomCount, connections);
     // printf("The farthest room from the top left room is room %c at room index %d which is at roomQuadrant %d\n",
-    //  rooms[farthestRoomIndex].wallChar, farthestRoomIndex, rooms[farthestRoomIndex].wallChar - '0');
+    //   rooms[farthestRoomIndex].wallChar, farthestRoomIndex, rooms[farthestRoomIndex].wallChar - '0');
 
     // place doors
     placeDoors(matrix, MAX_ROOM_COUNT * 2);
@@ -1159,14 +1180,19 @@ int main()
 
     int farthestFromExit = farthestRoom(farthestRoomIndex, dynamicRoomCount, connections);
 
+    // printf("The index of the top left room is %d (quad %d)\n", indexOfTopLeftRoom, rooms[indexOfTopLeftRoom].wallChar - '0');
+    // printf("The index of the farthest room from the exit is %d (quad %d)\n", farthestFromExit, rooms[farthestFromExit].wallChar - '0');
+
     if(farthestFromExit == indexOfTopLeftRoom) {
         // printf("??? The farthest room from the exit is the starting room, placing treasure in a different room\n");
+        //// TODO: fix bug where the treasure is sometimes placed in the starting room
         treasureRoomIndex = findMinConnectedRoomOfNonIgnoredRooms(connectionsCount, dynamicRoomCount, indexOfTopLeftRoom, farthestRoomIndex);
-        // printf("??? The treasure room index is %d\n", treasureRoomIndex);
+        // printf("??? The treasure room is in quad %d\n", rooms[treasureRoomIndex].wallChar - '0');
     } else {
-        // printf("--- The farthest room from the exit is room %c\n", rooms[farthestFromExit].wallChar);
+        // printf("--- The farthest room from the exit is in quad %d\n", rooms[farthestFromExit].wallChar - '0');
         treasureRoomIndex = farthestFromExit;
     }
+    printf("Placing the treasure in room %d (quad %c)\n", treasureRoomIndex, rooms[treasureRoomIndex].wallChar);
 
     // place the treasure in the treasureRoom
     treasureLocation = centerPointOfRectangle(rooms[treasureRoomIndex]);
