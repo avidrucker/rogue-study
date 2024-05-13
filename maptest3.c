@@ -489,13 +489,8 @@ struct Rectangle findTopLeftRoom(struct Rectangle *rooms, int numRooms) {
  * @param numRooms The number of rooms in the array.
  * @return The index of the intersecting room, or -1 if no intersection is found.
  */
-int getRoomIndexFromRect(struct Rectangle rect, struct Rectangle *rooms, int numRooms) {
-    for (int i = 0; i < numRooms; i++) {
-        if (rooms[i].xPos == rect.xPos && rooms[i].yPos == rect.yPos) {
-            return i;
-        }
-    }
-    return -1;
+int getRoomIndexFromRect(struct Rectangle rect) {
+    return rect.wallChar - '0';
 }
 
 
@@ -1107,7 +1102,7 @@ int main()
         topLeftRoom = findTopLeftRoom(rooms, dynamicRoomCount);
 
         // get the topLeftRoom index
-        indexOfTopLeftRoom = getRoomIndexFromRect(topLeftRoom, rooms, dynamicRoomCount);
+        indexOfTopLeftRoom = getRoomIndexFromRect(topLeftRoom);
 
         // debug 9
         // printf("The upper left most room is room %c at room index %d which is at roomQuadrant %d\n",
