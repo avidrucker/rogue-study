@@ -8,6 +8,39 @@
 This version of the study focuses on generating non-rectangular, non-straight corridors
 to connect the rooms randomly until all rooms are traversible.
 
+Time profiling has been added to the study to determine how long it takes to generate
+a valid map. Here is are some example outputs:
+
+Random seed: 1715609601
+Room gen epoch: 0
+Setup time: 0.000129 seconds
+
+Random seed: 1715609794
+Room gen epoch: 0
+Setup time: 0.000218 seconds
+
+Random seed: 1715609911
+Room gen epoch: 1
+Setup time: 0.000150 seconds
+
+Random seed: 1715609753
+Room gen epoch: 1
+Setup time: 0.000161 seconds
+
+Random seed: 1715609318
+Room gen epoch: 2
+Setup time: 0.000164 seconds
+
+Random seed: 1715608941
+Room gen epoch: 2
+Setup time: 0.000170 seconds
+
+From running a couple dozen seeds, it seems that the average time to generate a valid map
+is between 1 and 2 milliseconds. Interestingly, even as the number of epochs increases,
+the time to generate a valid map remains relatively constant. This is a good thing.
+However, I still want to see if I can reduce the overall computation time by optimizing
+the code further.
+
 */
 
 /* Notes:
@@ -24,6 +57,14 @@ to connect the rooms randomly until all rooms are traversible.
 - Hidden/secret doors and room that are only revealed if the player moves into/enters them
 - A bat enemy that moves and attacks randomly if the player is in the same room or corridor
 */
+/// TODO: rename "connections" matrix and "adjacency" matrix to make extra clear that they are
+//        NOT the same thing, that connections represents corridors actually connecting two rooms,
+//        whereas adjacency represents rooms that are cardinally adjacent to each other (and not
+//        necessarily connected by a corridor)
+/// IDEA: swap treasure room and exit room on levels where the level is connected like a "snake"
+//        (i.e. all rooms have a connection of 2 except for the first and last rooms, see seed
+//         1715609156 and 1715609348 for an example of this... ideally neither treasure room
+//         nor the exit would be next to the starting room, though they could be next to each other)
 /// TODO: fix bug where doors are sometimes not correctly detected, see room seed 1715568364 or 1715568497 as examples
 // DONE: fix bug where the exit is sometimes placed in the upper left room (see seed 24 or 30 for examples)
 // DONE: fix bug where the exit is sometimes placed not in the farthest room away from the player (seed seed 28 for example)
@@ -79,7 +120,7 @@ int MAX_ROOM_COUNT = 9;
 char PLAYER_CHAR = '@';
 char EXIT_CHAR = 'E';
 char TREASURE_CHAR = 'T';
-int fixedSeed = 0; // NULL means random, 0 is constant // fav seeds: 1715544555, 0, 19, 1715568562
+// int fixedSeed = 0; // NULL means random, 0 is constant // fav seeds: 1715544555, 0, 19, 1715568562, 1715609077, 1715609839
 int randomSeed;
 int printNotQuit = 1; // when we quit, we don't reprint the board (1 means print the board, 0 means don't print the board)
 int quadrantsUsed[9] = {-1}; // To track used quadrants
@@ -1078,6 +1119,9 @@ int countRooms(int quadsUsed[9]) {
 
 int main()
 {
+    // At the start of the level setup
+    clock_t start = clock(); // time profiling 1
+    
     printf("Welcome to Rogue Study!\n");
 
     // change back when in prod 
@@ -1201,6 +1245,13 @@ int main()
     // place the treasure in the treasureRoom
     treasureLocation = centerPointOfRectangle(rooms[treasureRoomIndex]);
     matrix[treasureLocation.y][treasureLocation.x] = TREASURE_CHAR;
+
+    // At the end of the level setup
+    clock_t end = clock(); // time profiling 2
+
+    // Calculate the time taken by the level setup
+    double time_taken = ((double)end - start) / CLOCKS_PER_SEC;
+    printf("Setup time: %f seconds\n", time_taken);
 
     // main game loop
     while (1)
