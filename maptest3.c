@@ -156,8 +156,8 @@ void printMatrix(char matrix[][COLS], int rows, int cols)
  * @return 1 if the character at the point is a door, floor, or corridor tile, 0 otherwise.
  */
 int pointIsDoorFloorOrCorridor(char matrix[][COLS], struct Point point) {
-    if (matrix[point.y][point.x] == '%' || matrix[point.y][point.x] == '.' || 
-            matrix[point.y][point.x] == '#') {
+    char c = matrix[point.y][point.x];
+    if (c == '%' || c == '.' || c == '#') {
         return 1;
     }
     return 0;
@@ -275,11 +275,12 @@ int intMax(int a, int b) {
 // direction is a "shift" value that represents a cardinal direction to move in (see directionShifts array)
 // size is the size of the 1D quad matrix (in this case, 9)
 // note: This function is specific to a 3x3 grid
-int isValidQuad(int pos, int direction, int size) {
+int isValidQuadDestination(int currentPosition, int direction, int size) {
     // Check bounds and special cases for left and right wrap-arounds
-    if (pos + direction < 0 || pos + direction >= size)
+    if (currentPosition + direction < 0 || currentPosition + direction >= size)
         return 0;
-    if ((direction == -1 && pos % 3 == 0) || (direction == 1 && (pos + 1) % 3 == 0))
+    if ((direction == -1 && currentPosition % 3 == 0) || 
+        (direction == 1 && (currentPosition + 1) % 3 == 0))
         return 0;
     return 1;
 }
@@ -301,7 +302,7 @@ void bfs(int quads1dMatrix[], int visited[], int start) {
         for (int i = 0; i < 4; i++) {
             int newPos = current + directionShifts[i];
             
-            if (isValidQuad(current, directionShifts[i], 9) && quads1dMatrix[newPos] != -1 && !visited[newPos]) {
+            if (isValidQuadDestination(current, directionShifts[i], 9) && quads1dMatrix[newPos] != -1 && !visited[newPos]) {
                 visited[newPos] = 1;
                 queue[rear++] = newPos; // Enqueue the position
             }
