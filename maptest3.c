@@ -24,6 +24,7 @@ to connect the rooms randomly until all rooms are traversible.
 - Hidden/secret doors and room that are only revealed if the player moves into/enters them
 - A bat enemy that moves and attacks randomly if the player is in the same room or corridor
 */
+/// TODO: fix bug where doors are sometimes not correctly detected, see room seed 1715568364 as an example 
 // DONE: fix bug where the exit is sometimes placed in the upper left room (see seed 24 or 30 for examples)
 // DONE: fix bug where the exit is sometimes placed not in the farthest room away from the player (seed seed 28 for example)
 // DONE: place exit at bottom right of farthest room from starting room
@@ -78,7 +79,8 @@ int MAX_ROOM_COUNT = 9;
 char PLAYER_CHAR = '@';
 char EXIT_CHAR = 'E';
 char TREASURE_CHAR = 'T';
-int fixedSeed = 23; // NULL means random, 0 is constant // fav seeds: 1715544555, 0, 19
+int fixedSeed = 0; // NULL means random, 0 is constant // fav seeds: 1715544555, 0, 19
+int randomSeed;
 int printNotQuit = 1; // when we quit, we don't reprint the board (1 means print the board, 0 means don't print the board)
 int quadrantsUsed[9] = {-1}; // To track used quadrants
 int wallsUsed[9][4] = {{0}}; // To track used walls between rooms
@@ -442,9 +444,11 @@ struct Rectangle *placeRooms(char matrix[][COLS]) {
             epochs++;
             // printf("2. Rooms are not cardinally adjacent, trying again...\n");
             // increment random seed to get different room placements
-            fixedSeed++;
+            randomSeed++;
+            // fixedSeed++;
             // printf("New random seed: %d\n", randSeed);
-            srand(fixedSeed);
+            // srand(fixedSeed);
+            srand(randomSeed);
             rooms = clearRooms(rooms, numRooms);
         }
     }
@@ -1077,11 +1081,11 @@ int main()
     printf("Welcome to Rogue Study!\n");
 
     // change back when in prod 
-    srand(fixedSeed);
-    // int seed = time(NULL);
-    // srand(seed);
-    printf("Fixed seed: %d\n", fixedSeed);
-    // printf("Random seed: %d\n", seed);
+    randomSeed = time(NULL);
+    // srand(fixedSeed);
+    srand(randomSeed);
+    // printf("Fixed seed: %d\n", fixedSeed);
+    printf("Random seed: %d\n", randomSeed);
     char matrix[ROWS][COLS]; // the board
     char input; // character move input: 'wasd' or 'q'
     // initialize display message that gives player info regarding out of bounds, etc.
@@ -1192,7 +1196,7 @@ int main()
         // printf("--- The farthest room from the exit is in quad %d\n", rooms[farthestFromExit].wallChar - '0');
         treasureRoomIndex = farthestFromExit;
     }
-    printf("Placing the treasure in room %d (quad %c)\n", treasureRoomIndex, rooms[treasureRoomIndex].wallChar);
+    // printf("Placing the treasure in room %d (quad %c)\n", treasureRoomIndex, rooms[treasureRoomIndex].wallChar);
 
     // place the treasure in the treasureRoom
     treasureLocation = centerPointOfRectangle(rooms[treasureRoomIndex]);
