@@ -24,7 +24,7 @@ to connect the rooms randomly until all rooms are traversible.
 - Hidden/secret doors and room that are only revealed if the player moves into/enters them
 - A bat enemy that moves and attacks randomly if the player is in the same room or corridor
 */
-/// TODO: fix bug where doors are sometimes not correctly detected, see room seed 1715568364 as an example 
+/// TODO: fix bug where doors are sometimes not correctly detected, see room seed 1715568364 or 1715568497 as examples
 // DONE: fix bug where the exit is sometimes placed in the upper left room (see seed 24 or 30 for examples)
 // DONE: fix bug where the exit is sometimes placed not in the farthest room away from the player (seed seed 28 for example)
 // DONE: place exit at bottom right of farthest room from starting room
