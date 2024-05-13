@@ -25,6 +25,8 @@ to connect the rooms randomly until all rooms are traversible.
 - A bat enemy that moves and attacks randomly if the player is in the same room or corridor
 */
 
+// DONE: place exit at bottom right of farthest room from starting room
+// DONE: implement valid random placement of corridor connections (doors) along walls
 // DONE: reimplement doors after completing bendy corridors
 // DONE: player player 1 at the topleft of the top left room
 // DONE: place treasure in a room with the least connections that isn't the starting nor ending room
@@ -75,7 +77,7 @@ int MAX_ROOM_COUNT = 9;
 char PLAYER_CHAR = '@';
 char EXIT_CHAR = 'E';
 char TREASURE_CHAR = 'T';
-int fixedSeed = 1715544555; // NULL means random, 0 is constant
+int fixedSeed = 0; // NULL means random, 0 is constant // fav seeds: 1715544555
 int printNotQuit = 1; // when we quit, we don't reprint the board (1 means print the board, 0 means don't print the board)
 int quadrantsUsed[9] = {-1}; // To track used quadrants
 int wallsUsed[9][4] = {{0}}; // To track used walls between rooms
@@ -643,27 +645,26 @@ int getFacingWallDirectionSimple(int room1Index, int room2Index) {
     return direction;
 }
 
-/// TODO: implement valid random placement along wall
-// function currently places the point in the middle of the wall
+// function used to determine where corridors connect to each room
 struct Point *getRandomPointOnWall(struct Rectangle room, int direction) {
     struct Point *point = (struct Point *)malloc(1 * sizeof(struct Point));
     
     switch (direction) {
         case 0: // North
-            (*point).x = room.xPos + room.width/2;
+            (*point).x = room.xPos + 1 + rand() % (room.width - 2);
             (*point).y = room.yPos - 1;
             break;
         case 1: // East
             (*point).x = room.xPos + room.width;
-            (*point).y = room.yPos + room.height/2;
+            (*point).y = room.yPos + 1 + rand() % (room.height - 2);
             break;
         case 2: // South
-            (*point).x = room.xPos + room.width/2;
+            (*point).x = room.xPos + 1 + rand() % (room.width - 2);
             (*point).y = room.yPos + room.height;
             break;
         case 3: // West
             (*point).x = room.xPos - 1;
-            (*point).y = room.yPos + room.height/2;
+            (*point).y = room.yPos + 1 + rand() % (room.height - 2);
             break;
         default:
             // Invalid direction
@@ -733,7 +734,7 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
         /// TODO: rewrite this logic so that it is more readable
         // check to make sure that the rooms are in valid quadrants
         if(room1Quad < 0 || room1Quad > 8 || room2Quad < 0 || room2Quad > 8 || room1Quad == room2Quad) {
-            // printf("Error: rooms %d or %d have invalid quads\n", room1Index, room2Index);
+            printf("Error: rooms %d (quad %d) or %d (quad %d) have invalid quads\n", room1Index, room1Quad, room2Index, room2Quad);
             // printf("Room index %d has a quad of %d\n", room1Index, room1Quad);
             // printf("Room index %d has a quad of %d\n", room2Index, room2Quad);
             continue;
@@ -742,7 +743,7 @@ struct Rectangle *placeCorridors(char matrix[][COLS], struct Rectangle *rooms, i
 
         /// TODO: see if we can remove this next check if we can determine it is redundant/unnecessary
         if(!roomExists(room1Quad) || !roomExists(room2Quad)) {
-            // printf("Error: rooms %d or %d do not exist\n", room1Index, room2Index);
+            printf("Error: rooms %d (quad %d) or %d (quad %d) do not exist\n", room1Index, room1Quad, room2Index, room2Quad);
             // printf("Room index %d has a quad of %d\n", room1Index, room1Quad);
             // printf("Room index %d has a quad of %d\n", room2Index, room2Quad);
             continue;
@@ -968,6 +969,13 @@ struct Point centerPointOfRectangle(struct Rectangle rect) {
     return point;
 }
 
+struct Point bottomRightCornerOfRectangle(struct Rectangle rect) {
+    struct Point point;
+    point.x = rect.xPos + rect.width - 3;
+    point.y = rect.yPos + rect.height - 3;
+    return point;
+}
+
 // returns an array of ints where each index i is the 
 // number of connections room i has
 int* countConnections(int numRooms, int connections[][numRooms]) {
@@ -1136,8 +1144,10 @@ int main()
     playerCell = matrix[playerLocation.y][playerLocation.x];
     matrix[playerLocation.y][playerLocation.x] = PLAYER_CHAR;
 
+    //// TODO: place exit in corner of farthest room, where the corner 
+    //         is the farthest corner from the player's starting position
     // place exit onto the board for now
-    exitLocation = centerPointOfRectangle(rooms[farthestRoomIndex]);
+    exitLocation = bottomRightCornerOfRectangle(rooms[farthestRoomIndex]);
     matrix[exitLocation.y][exitLocation.x] = EXIT_CHAR;
 
     // count the number of connections each room has
@@ -1159,7 +1169,7 @@ int main()
     }
 
     // place the treasure in the treasureRoom
-    treasureLocation = randomPointInRectangle(rooms[treasureRoomIndex]);
+    treasureLocation = centerPointOfRectangle(rooms[treasureRoomIndex]);
     matrix[treasureLocation.y][treasureLocation.x] = TREASURE_CHAR;
 
     // main game loop
